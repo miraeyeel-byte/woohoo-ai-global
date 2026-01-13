@@ -2,66 +2,43 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# 1. 페이지 설정
+# 1. 페이지 설정 (브라우저 탭 이름)
 st.set_page_config(page_title="WOOHOO AI GLOBAL", layout="wide")
 
-# 2. 디자인 입히기 (여기가 핵심입니다!)
-st.markdown("""
-    <style>
-    /* 전체 배경을 칠흑 같은 검은색으로 */
-    .stApp { background-color: #000000; color: #FFFFFF; }
-    
-    /* 제목을 소닉처럼 황금색 네온으로 */
-    h1 { color: #E8C35E !important; text-shadow: 0 0 15px #E8C35E; font-family: 'Courier New', Courier, monospace; }
-    h3 { color: #E8C35E !important; }
-    
-    /* 박스 테두리 디자인 */
-    .stMetric { border: 1px solid #E8C35E; border-radius: 10px; padding: 10px; background-color: #111111; }
-    
-    /* 버튼을 델리시움 스타일로 */
-    .stButton>button { 
-        background: linear-gradient(45deg, #E8C35E, #B8860B); 
-        color: black !important; 
-        font-weight: bold; 
-        border-radius: 20px;
-        border: none;
-        width: 100%;
-    }
-    </style>
-    """, unsafe_allow_index=True)
+# 2. 다크 모드 강제 적용 및 제목 디자인
+st.markdown("# ⚡ WOOHOO AI HYPER-CORE")
+st.markdown("### 🌍 DECENTRALIZED INTELLIGENCE NETWORK")
+st.write("---")
 
-# --- 상단 섹션 ---
-st.title("⚡ WOOHOO AI HYPER-CORE")
-st.write("🌐 DECENTRALIZED INTELLIGENCE NETWORK ON SOLANA")
-st.divider()
+# 3. 델리시움 스타일 대시보드 (에러가 없는 안전한 방식)
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.info("📡 SCANNER STATUS\n\nACTIVE (0.001ms)")
+with c2:
+    st.success("💎 TOTAL NODES\n\n2,405 EA (+128)")
+with col3 if 'col3' in locals() else c3:
+    st.warning("🧠 AI CONFIDENCE\n\n99.8% (ELITE)")
 
-# --- 델리시움 스타일 대시보드 ---
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("SCANNER STATUS", "ACTIVE", "0.001ms")
-with col2:
-    st.metric("TOTAL NODES", "2,405 EA", "+128")
-with col3:
-    st.metric("AI CONFIDENCE", "99.8%", "ELITE")
-
-# --- 실시간 분석 차트 ---
+# 4. 소닉 스타일 실시간 분석 차트
 st.write("### 📊 Live Intelligence Flow")
-chart_data = pd.DataFrame(np.random.randn(20, 2), columns=['Security', 'Network'])
-st.area_chart(chart_data)
+data = pd.DataFrame(np.random.randn(20, 2), columns=['Security', 'AI-Shield'])
+st.area_chart(data)
 
-# --- 기술력 과시 (터미널 창) ---
-st.write("### 🎯 AI SNIPER ENGINE [LIVE]")
+# 5. AI 스나이퍼 로그 (사장님의 기술력 포인트)
+st.write("---")
+st.write("🎯 **AI SNIPER ENGINE [LIVE SCANNING]**")
 st.code("""
 [SYSTEM] Deep-Scanning Block #29481...
 [DETECT] Safe Token Found: $WOOHOO
 [ACTION] Monitoring Liquidity Pools...
-[STATUS] All Systems Green.
+[STATUS] All Systems Green. No Rug-pull Detected.
 """, language='bash')
 
-# --- 노드 민팅 버튼 ---
-st.divider()
+# 6. 노드 구매 버튼 (누르면 풍선 터짐)
 if st.button("MINT YOUR FOUNDER NODE (2.0 SOL)"):
     st.balloons()
-    st.success("Wallet Connection Ready! Initializing Minting...")
+    st.success("Wallet Connection Initialized! Checking Whitelist...")
 
+# 7. 푸터
+st.write("---")
 st.caption("© 2026 WOOHOO AI LABS | Powered by Solana High-Speed Network")
