@@ -1,78 +1,52 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go  # 강제 컬러링을 위한 강력한 차트 도구
 
 # 1. 페이지 설정
-st.set_page_config(page_title="WOOHOO AI GLOBAL", layout="wide")
+st.set_page_config(page_title="WOOHOO CORE", layout="wide")
 
-# 2. 디자인 적용 (여기서 에러 나던 'index' 단어를 'html'로 고쳤습니다!)
+# 2. [핵심] CSS로 폰트와 배경 강제 주입
 st.markdown("""
     <style>
-    /* 전체 배경을 리얼 블랙으로 */
+    /* 전체 배경 무조건 리얼 블랙 */
     .stApp {
         background-color: #000000 !important;
+    }
+    
+    /* 모든 폰트를 해커 스타일(타자기체)로 강제 변경 */
+    html, body, p, h1, h2, h3, div, span, button {
+        font-family: 'Courier New', Courier, monospace !important;
         color: #E8C35E !important;
     }
-    /* 글자색 전부 황금색으로 통일 */
-    h1, h2, h3, p, span, div {
-        color: #E8C35E !important;
-        font-family: 'Courier New', sans-serif;
-    }
-    /* 버튼을 고급진 그라데이션 골드로 */
-    .stButton>button {
-        background: linear-gradient(45deg, #E8C35E, #B8860B) !important;
-        color: black !important;
-        border: none;
-        border-radius: 10px;
-        font-weight: bold;
-        height: 50px;
-        width: 100%;
-    }
-    /* 숫자 박스 테두리 디자인 */
+    
+    /* 숫자 박스 디자인 */
     [data-testid="stMetric"] {
-        background-color: #111111 !important;
+        background-color: #0a0a0a !important;
         border: 1px solid #E8C35E !important;
-        border-radius: 10px;
-        padding: 15px;
         box-shadow: 0 0 10px rgba(232, 195, 94, 0.2);
     }
+    
+    /* 버튼 디자인 */
+    .stButton>button {
+        background-color: #E8C35E !important;
+        color: #000000 !important;
+        border: none;
+        font-weight: bold;
+    }
     </style>
-    """, unsafe_allow_html=True) 
+    """, unsafe_allow_html=True)
 
-# 3. 메인 타이틀
-st.title("⚡ WOOHOO AI HYPER-CORE")
-st.write("### 🌍 DECENTRALIZED INTELLIGENCE NETWORK")
+# 3. 헤더
+st.title("⚡ WOOHOO_AI_CORE")
+st.write("Target: SOLANA_MAINNET | Status: MONITORING...")
 st.write("---")
 
-# 4. 대시보드 (오타 없이 깔끔하게 정리)
+# 4. 대시보드
 c1, c2, c3 = st.columns(3)
 with c1:
-    st.metric("📡 SCANNER STATUS", "ACTIVE", "0.001ms")
+    st.metric("SCANNER", "ACTIVE", "0.001ms")
 with c2:
-    st.metric("💎 TOTAL NODES", "2,405 EA", "+128")
+    st.metric("NODES", "2,405", "+128")
 with c3:
-    st.metric("🧠 AI CONFIDENCE", "99.8%", "ELITE")
-
-# 5. 차트
-st.write("### 📊 Live Intelligence Flow")
-chart_data = pd.DataFrame(np.random.randn(20, 2), columns=['Security', 'AI-Shield'])
-st.area_chart(chart_data)
-
-# 6. 시스템 로그
-st.write("---")
-st.write("🎯 **AI SNIPER ENGINE [LIVE SCANNING]**")
-st.code("""
-[SYSTEM] Deep-Scanning Block #29481...
-[DETECT] Safe Token Found: $WOOHOO
-[ACTION] Monitoring Liquidity Pools...
-[STATUS] All Systems Green. No Rug-pull Detected.
-""", language='bash')
-
-# 7. 버튼
-if st.button("MINT YOUR FOUNDER NODE (2.0 SOL)"):
-    st.balloons()
-    st.success("Wallet Connection Initialized! Checking Whitelist...")
-
-# 8. 바닥글
-st.write("---")
-st.caption("© 2026 WOOHOO AI LABS | Powered by Solana High-Speed Network")
+    st.metric("CONFIDENCE", "99.9
