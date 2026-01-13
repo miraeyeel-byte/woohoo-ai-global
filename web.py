@@ -4,198 +4,228 @@ import numpy as np
 import random
 import time
 import streamlit.components.v1 as components
+import os
+import sqlite3
+import uuid
+import logging
+import threading
+import html
+import re
 
-# 1. 페이지 설정
-st.set_page_config(page_title="WOOHOO AI | MASTER CONTROL", layout="wide")
+# 1. DB 설정 및 성능 최적화
+def get_db_conn():
+    conn = sqlite3.connect('woohoo_v8_final.db', timeout=15, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
 
-# 2. 운영자 정보 및 세션 유지 (절대 삭제 금지)
-OWNER_WALLET = "7kLoYeYu1nNRw7EhA7FWNew2f1KWpe6mL7zpcMvntxPx"
-WH_PRICE = 1.00 
+logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(message)s')
+db_lock = threading.Lock()
 
-if 'wallet_address' not in st.session_state: st.session_state.wallet_address = None
-if 'balance' not in st.session_state: st.session_state.balance = 2.0
-if 'heroes' not in st.session_state: st.session_state.heroes = {} 
-if 'vault' not in st.session_state: st.session_state.vault = {}
-if 'treasury' not in st.session_state: st.session_state.treasury = 0.0
-if 'owned_nodes' not in st.session_state: st.session_state.owned_nodes = 0
-if 'is_first_dice' not in st.session_state: st.session_state.is_first_dice = True
-if 'dice_status' not in st.session_state: st.session_state.dice_status = "idle"
-if 'dodge_game_run' not in st.session_state: st.session_state.dodge_game_run = False
+# 2. [Singleton] 하트비트 기반 봇 리커버리 로직
+def try_start_bot():
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS bot_lock (id INTEGER PRIMARY KEY CHECK(id=1), last_heartbeat REAL)")
+        now = time.time()
+        try:
+            # 봇 권한 획득 시도
+            c.execute("INSERT INTO bot_lock (id, last_heartbeat) VALUES (1, ?)", (now,))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            # 이미 존재하면 하트비트 체크
+            c.execute("SELECT last_heartbeat FROM bot_lock WHERE id=1")
+            last_hb = c.fetchone()[0]
+            if now - last_hb > 120: # 120초 경과 시 좀비 봇으로 판단
+                c.execute("UPDATE bot_lock SET last_heartbeat = ? WHERE id=1", (now,))
+                conn.commit()
+                return True
+            return False
 
-# 3. [디자인] 초강력 입체 음양 & 캐릭터 강화 CSS
-st.markdown("""
-    <style>
+def system_bot_thread():
+    """배경 분위기 조성 및 하트비트 갱신"""
+    msgs = ["🔥 잭팟의 주인공을 찾습니다!", "🚀 TGE 리스팅 임박!", "🐲 가디언 합성 성공 확률 업!", "🎲 하우스 배당 이벤트 진행 중!"]
+    while True:
+        try:
+            with get_db_conn() as conn:
+                # 하트비트 업데이트
+                conn.execute("UPDATE bot_lock SET last_heartbeat = ? WHERE id=1", (time.time(),))
+                # 랜덤 메시지 발송
+                msg = random.choice(msgs)
+                conn.execute("INSERT INTO chat (wallet, message, time) VALUES (?, ?, ?)", 
+                             ("⚙ SYSTEM", msg, time.strftime('%H:%M:%S')))
+                conn.execute("DELETE FROM chat WHERE id NOT IN (SELECT id FROM chat ORDER BY id DESC LIMIT 200)")
+                conn.commit()
+        except: pass
+        time.sleep(random.randint(25, 55))
+
+# 3. 데이터베이스 초기화
+def init_db():
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, nodes INTEGER)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS inventory (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet, lvl))''')
+        c.execute('''CREATE TABLE IF NOT EXISTS system_state (id INTEGER PRIMARY KEY CHECK (id=1), treasury REAL)''')
+        c.execute("INSERT OR IGNORE INTO system_state (id, treasury) VALUES (1, 1000.0)")
+        c.execute('''CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, wallet TEXT, message TEXT, time TEXT)''')
+        # TX 로그 기록용 테이블 (EV 리포트용)
+        c.execute('''CREATE TABLE IF NOT EXISTS tx_history (id INTEGER PRIMARY KEY AUTOINCREMENT, wallet TEXT, reason TEXT, user_delta REAL, house_delta REAL, time REAL)''')
+        conn.commit()
+
+init_db()
+if try_start_bot():
+    threading.Thread(target=system_bot_thread, daemon=True).start()
+
+# 4. [확률 제어] 연속적 페널티 엔진
+def weighted_roll(t):
+    """중앙 금고 잔액에 따라 주사위 눈금 확률을 선형적으로 조절"""
+    base = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    # 금고가 300 이하로 떨어지면 페널티 발생 (0~300 구간)
+    penalty = max(0, 300 - t) / 300  # 0~1 사이 값
+    # 5번(index 4), 6번(index 5) 눈금 확률 최대 60%까지 감소
+    base[4] -= penalty * 0.6
+    base[5] -= penalty * 0.6
+    return random.choices(range(1, 7), weights=base)[0]
+
+GAME_CONFIG = {
+    "DODGE_FEE": 0.05, "DODGE_REWARD": 0.1, "DODGE_MIN_TIME": 10.0,
+    "FUSE_SUCCESS": 0.75, "MAX_LEVEL": 6, "DICE_X6": 2.0, "DICE_X5": 1.2,
+    "SESSION_BET_LIMIT": 50 # 세션당 베팅 제한
+}
+
+OWNER_WALLET = os.getenv("OWNER_WALLET", "7kLoYeYu1nNRw7EhA7FWNew2f1KWpe6mL7zpcMvntxPx")
+APP_MODE = os.getenv("APP_MODE", "DEMO")
+
+# 5. 세션 상태 초기화
+if 'session_id' not in st.session_state: st.session_state.session_id = uuid.uuid4().hex[:8]
+if 'bet_count' not in st.session_state: st.session_state.bet_count = 0
+if 'treasury_loaded' not in st.session_state:
+    with get_db_conn() as conn:
+        st.session_state.global_treasury = conn.cursor().execute("SELECT treasury FROM system_state WHERE id=1").fetchone()[0]
+    st.session_state.treasury_loaded = True
+
+init_states = {'wallet_address': None, 'is_admin': False, 'balance': 10.0, 'heroes': {}, 'dice_status': "idle", 'chat_paused': False}
+for k, v in init_states.items():
+    if k not in st.session_state: st.session_state[k] = v
+
+# --- [V8 원자적 트랜잭션 함수] ---
+def process_transaction(user_delta, house_delta, reason, meta=None):
+    if st.session_state.balance + user_delta < 0: return False
+    with db_lock:
+        try:
+            with get_db_conn() as conn:
+                # 원자성 확보를 위한 BEGIN IMMEDIATE
+                conn.execute("BEGIN IMMEDIATE")
+                c = conn.cursor()
+                st.session_state.balance += user_delta
+                c.execute("INSERT OR REPLACE INTO users (wallet, balance, nodes) VALUES (?, ?, ?)", 
+                          (st.session_state.wallet_address, st.session_state.balance, 0))
+                c.execute("UPDATE system_state SET treasury = treasury + ? WHERE id=1", (house_delta,))
+                c.execute("INSERT INTO tx_history (wallet, reason, user_delta, house_delta, time) VALUES (?, ?, ?, ?, ?)",
+                          (st.session_state.wallet_address, reason, user_delta, house_delta, time.time()))
+                c.execute("SELECT treasury FROM system_state WHERE id=1")
+                st.session_state.global_treasury = c.fetchone()[0]
+                conn.commit()
+            return True
+        except Exception as e:
+            logging.error(f"TX ERR: {e}")
+            return False
+
+def send_chat(wallet, msg, is_system=False):
+    msg = html.escape(msg)
+    if not is_system and (len(msg) > 100 or re.search(r"(http|www|\.com|\.net)", msg.lower())): return
+    if not msg.strip(): return
+    with db_lock:
+        with get_db_conn() as conn:
+            conn.execute("INSERT INTO chat (wallet, message, time) VALUES (?, ?, ?)", 
+                         ("⚙ SYSTEM" if is_system else wallet, msg, time.strftime('%H:%M:%S')))
+            conn.commit()
+
+# 6. UI 디자인
+st.markdown("""<style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Noto+Sans+KR:wght@700;900&display=swap');
     .stApp { background-color: #000000 !important; }
-    
-    /* 텍스트 가독성: 4중 레이어 음영 */
-    html, body, [class*="st-"] {
-        color: #FFFFFF !important;
-        font-family: 'Noto Sans KR', sans-serif !important;
-        text-shadow: 2px 2px 5px #000, -2px -2px 5px #000, 2px -2px 5px #000, -2px 2px 5px #000 !important;
-    }
-    
-    h1, h2, h3, h4 { 
-        color: #FFD700 !important; 
-        font-family: 'Orbitron' !important; 
-        text-shadow: 0px 0px 20px rgba(255, 215, 0, 0.7), 4px 4px 4px #000 !important; 
-    }
+    html, body, [class*="st-"] { color: #FFFFFF !important; font-family: 'Noto Sans KR', sans-serif !important; text-shadow: 2px 2px 4px #000 !important; }
+    h1, h2, h3 { color: #FFD700 !important; font-family: 'Orbitron' !important; }
+    .premium-card { background: linear-gradient(145deg, #1e1e1e, #050505); border: 2px solid #FFD700; border-radius: 20px; padding: 15px; text-align: center; margin-bottom: 20px; }
+    .chat-box { background: #0a0a0a; border: 1px solid #333; height: 350px; overflow-y: auto; padding: 10px; font-size: 14px; }
+</style>""", unsafe_allow_html=True)
 
-    /* 프리미엄 카드 */
-    .premium-card {
-        background: linear-gradient(145deg, #1e1e1e, #050505);
-        border: 2px solid #FFD700;
-        border-radius: 25px;
-        padding: 25px;
-        box-shadow: 15px 15px 35px #000, inset 0 0 20px #333;
-        margin-bottom: 25px;
-        text-align: center;
-    }
+st.markdown("<h1 style='text-align: center;'>⚡ WOOHOO AI HYPER-CORE V8</h1>", unsafe_allow_html=True)
 
-    /* 귀여운 캐릭터 이미지 강화 */
-    .char-img {
-        font-size: 120px !important; /* 이미지 크기 대폭 확대 */
-        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9));
-        margin: 20px 0;
-        display: inline-block;
-        transition: transform 0.3s ease;
-    }
-    .char-img:hover { transform: scale(1.1); }
-    </style>
-    """, unsafe_allow_html=True)
+# 7. 메인 탭 레이아웃
+tabs = st.tabs(["🌐 현황", "🕹️ 닷지", "🎲 주사위", "🐲 히어로", "💬 채팅", "👑 관리자" if st.session_state.is_admin else " "])
 
-# 4. 헤더
-st.markdown("<h1 style='text-align: center; font-size: 55px;'>⚡ WOOHOO AI HYPER-CORE</h1>", unsafe_allow_html=True)
+# --- 탭 2: 주사위 (연속 확률 엔진 및 세션 리밋) ---
+@st.fragment
+def dice_tab():
+    if st.session_state.bet_count >= GAME_CONFIG['SESSION_BET_LIMIT']:
+        st.warning("⚠️ 세션 베팅 한도 도달. 잠시 후 시도하세요.")
+        return
 
-# 5. 사이드바 - 지갑 센터
-with st.sidebar:
-    st.markdown("### 🔑 WALLET ACCESS")
-    if not st.session_state.wallet_address:
-        if st.button("👑 운영자 빠른 연결", use_container_width=True):
-            st.session_state.wallet_address = OWNER_WALLET
-            st.session_state.balance = 100000000.0; st.rerun()
-    else:
-        st.markdown(f"""<div class='premium-card'><p style='color:#888;'>WALLET ADDRESS</p><p style='font-size:14px; color:#FFD700;'>{st.session_state.wallet_address[:14]}...</p><hr style='border-color:#333;'><p style='color:#888;'>잔액</p><h2>{st.session_state.balance:,.1f} WH</h2></div>""", unsafe_allow_html=True)
-        if st.button("지갑 연결 해제"): st.session_state.wallet_address = None; st.rerun()
-
-# 6. 탭 구성 (에러 방지 고정 리스트)
-t_list = ["🌐 현황", "🛠️ 노드 분양", "🕹️ 닷지 게임", "🎲 주사위 게임", "🐲 히어로 소환 & 보관"]
-if st.session_state.wallet_address == OWNER_WALLET: t_list.append("👑 관리자")
-tabs = st.tabs(t_list)
-
-# --- 탭 0: 현황 (복구) ---
-with tabs[0]:
-    st.markdown("### 🌐 GLOBAL NETWORK STATUS")
-    st.line_chart(pd.DataFrame(np.random.randn(20, 1), columns=['Power']), color=["#FFD700"])
-
-# --- 탭 1: 노드 분양 (복구) ---
-with tabs[1]:
-    st.markdown("### 🛠️ NODE MINTING")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("<div class='premium-card'><h4>MASTER NODE</h4><p>Price: 2.0 SOL<br>Daily: 50 WH</p></div>", unsafe_allow_html=True)
-        if st.button("MINT NODE"): st.session_state.owned_nodes += 1; st.success("민팅 완료!")
-    with col2: st.metric("보유 노드", f"{st.session_state.owned_nodes} Units")
-
-# --- 탭 2: 닷지 게임 (엔진 및 시작 버튼 복구) ---
-with tabs[2]:
-    st.markdown("### 🕹️ DODGE SURVIVAL")
-    if not st.session_state.wallet_address: st.error("지갑 연결 필요")
-    else:
-        st.write("참가비: 0.05 WH (10초 생존 시 0.1 WH 보상)")
-        if not st.session_state.dodge_game_run:
-            if st.button("🚀 게임 시작하기 (START)", use_container_width=True):
-                if st.session_state.balance >= 0.05:
-                    st.session_state.balance -= 0.05
-                    st.session_state.dodge_game_run = True; st.rerun()
-        else:
-            if st.button("⏹️ 게임 종료"): st.session_state.dodge_game_run = False; st.rerun()
-            # 캔버스 엔진
-            game_js = """<div style='text-align:center;'><canvas id='dg' width='500' height='300' style='border:3px solid #FFD700; background:#000; cursor:none;'></canvas><h2 id='tm' style='color:#FFD700;'>0.00s</h2></div>
-            <script>const c=document.getElementById('dg'),x=c.getContext('2d');let s=Date.now(),p={x:250,y:150,r:7},b=[],go=false;
-            c.onmousemove=e=>{const r=c.getBoundingClientRect();p.x=e.clientX-r.left;p.y=e.clientY-r.top;};
-            function loop(){if(go)return;let el=(Date.now()-s)/1000;document.getElementById('tm').innerText=el.toFixed(2)+'s';
-            if(b.length<30+el*2)b.push({x:Math.random()*500,y:0,vx:(Math.random()-0.5)*6,vy:2+Math.random()*4,r:3});
-            b.forEach((i,idx)=>{i.x+=i.vx;i.y+=i.vy;if(i.y>300)b.splice(idx,1);if(Math.hypot(i.x-p.x,i.y-p.y)<i.r+p.r)go=true;});
-            x.clearRect(0,0,500,300);x.fillStyle='#FFD700';x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fill();
-            x.fillStyle='#FF4B4B';b.forEach(i=>{x.beginPath();x.arc(i.x,i.y,i.r,0,7);x.fill();});
-            if(go){x.fillStyle='red';x.font='40px Orbitron';x.fillText('GAME OVER',130,150);}requestAnimationFrame(loop);}loop();</script>"""
-            components.html(game_js, height=450)
-            if st.button("🎁 생존 보상 받기"): st.session_state.balance += 0.1; st.success("0.1 WH 보상 완료")
-
-# --- 탭 3: 주사위 게임 (확대 및 시간 조절) ---
-with tabs[3]:
-    st.markdown("### 🎲 LUCKY DICE : PREMIUM")
     if st.session_state.dice_status == "rolling":
-        st.markdown("<center><h1 style='font-size:150px; animation: spin 0.2s infinite;'>🎲</h1></center><style>@keyframes spin {to{transform:rotate(360deg);}}</style>", unsafe_allow_html=True)
-        time.sleep(1.0) # 1초 애니메이션
-        count = st.session_state.get('roll_count', 1)
-        st.session_state.multi_dice_results = [(6 if st.session_state.is_first_dice else random.randint(1,6)) for _ in range(count)]
-        st.session_state.is_first_dice = False; st.session_state.dice_status = "done"; st.rerun()
+        p = st.empty()
+        for _ in range(12): p.markdown(f"<h1 style='text-align:center;'>🎲 {random.choice(['⚀','⚁','⚂','⚃','⚄','⚅'])}</h1>", unsafe_allow_html=True); time.sleep(0.08)
+        # 선형 페널티 확률 적용
+        st.session_state.dice_res = weighted_roll(st.session_state.global_treasury)
+        st.session_state.dice_status = "done"; st.rerun()
+    
     elif st.session_state.dice_status == "done":
-        st.markdown("<div class='premium-card' style='background:#FFF5E1;'>", unsafe_allow_html=True)
-        res_list = st.session_state.multi_dice_results
-        cols = st.columns(len(res_list))
-        total_win = 0
-        for i, r in enumerate(res_list):
-            cols[i].markdown(f"<h1 style='color:#FF4B4B; font-size:130px; text-align:center;'>{r}</h1>", unsafe_allow_html=True)
-            if r >= 5: total_win += (st.session_state.current_bet * 1.9)
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.session_state.balance += total_win
-        if total_win > 0: st.success(f"당첨금 {total_win:,.1f} WH 지급!")
-        if st.button("다시 하기"): st.session_state.dice_status = "idle"; st.rerun()
+        res = st.session_state.dice_res
+        win = st.session_state.cur_bet * (GAME_CONFIG['DICE_X6'] if res==6 else GAME_CONFIG['DICE_X5'] if res==5 else 0)
+        if win > 0: process_transaction(win, -win, "DICE_WIN")
+        else: process_transaction(0, st.session_state.cur_bet, "DICE_LOSE")
+        st.write(f"결과: {res}"); st.button("RETRY", on_click=lambda: st.session_state.update({"dice_status":"idle"}))
+    
     else:
-        bet = st.selectbox("베팅액 (WH)", [1, 5, 10, 50, 100])
-        st.session_state.current_bet = bet
-        c1, c2, c3 = st.columns(3)
-        if c1.button("🎲 1회"): st.session_state.roll_count=1; st.session_state.dice_status="rolling"; st.rerun()
-        if c2.button("🎰 5회 연속"): st.session_state.roll_count=5; st.session_state.dice_status="rolling"; st.rerun()
-        if c3.button("🔥 10회 연속"): st.session_state.roll_count=10; st.session_state.dice_status="rolling"; st.rerun()
+        bet = st.selectbox("BET AMOUNT", [1, 10, 100])
+        if st.button("ROLL!"):
+            if process_transaction(-bet, 0, "DICE_BET_HOLD"):
+                st.session_state.bet_count += 1
+                st.session_state.update({"cur_bet": bet, "dice_status": "rolling"}); st.rerun()
 
-# --- 탭 4: 히어로 소환 & 보관 (이미지 확대 및 명칭 변경) ---
-with tabs[4]:
-    st.markdown("### 🐲 HERO SUMMON & VAULT")
-    h_icons = {1:"💧", 2:"👺", 3:"👹", 4:"🐎", 5:"🐉", 6:"👼"}
-    h_names = {1:"슬라임", 2:"고블린", 3:"오크", 4:"켄타우로스", 5:"드래곤", 6:"가디언"}
-    h_prices = {1:5, 2:15, 3:45, 4:150, 5:500, 6:2000}
+with tabs[2]: dice_tab()
 
-    col_p, col_i, col_v = st.columns([1.5, 2.5, 2])
-    with col_p:
-        st.subheader("✨ 히어로 소환")
-        if st.button("10회 소환 (90 WH)", use_container_width=True):
-            st.session_state.balance -= 90; st.session_state.heroes[1] = st.session_state.heroes.get(1,0)+10; st.rerun()
-        if st.button("👑 100회 소환 (800 WH)", use_container_width=True):
-            st.session_state.balance -= 800; st.session_state.heroes[1] = st.session_state.heroes.get(1,0)+100; st.rerun()
+# --- 탭 5: 관리자 (EV 리포트 및 랭킹) ---
+if st.session_state.is_admin and len(tabs) > 5:
+    with tabs[5]:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("중앙 금고 순수익 (Treasury)", f"{st.session_state.global_treasury:,.2f} WH")
+        with c2:
+            with get_db_conn() as conn:
+                # 하우스 수익률 분석 (EV 리포트)
+                stats = conn.execute("SELECT SUM(CASE WHEN reason LIKE 'DICE_LOSE' THEN house_delta ELSE 0 END), SUM(CASE WHEN reason LIKE 'DICE_WIN' THEN -house_delta ELSE 0 END) FROM tx_history").fetchone()
+                win_val, lose_val = (stats[0] or 0), (stats[1] or 0)
+                st.metric("주사위 누적 하우스 수익", f"{win_val - lose_val:,.2f} WH")
 
-    with col_i:
-        st.subheader("🎒 내 인벤토리")
-        for lvl in sorted(st.session_state.heroes.keys()):
-            cnt = st.session_state.heroes[lvl]
-            if cnt > 0:
-                price = h_prices.get(lvl, lvl*500)
-                st.markdown(f"""<div class='premium-card'><div class='char-img'>{h_icons.get(lvl,'🛡️')}</div><br>
-                    <b>Lv.{lvl} {h_names.get(lvl)}</b> ({cnt}개)<br><span style='color:#00FF00;'>판매가: {price} WH</span></div>""", unsafe_allow_html=True)
-                cc1, cc2, cc3 = st.columns(3)
-                if cnt >= 2 and cc1.button(f"x1", key=f"f1_{lvl}"):
-                    st.session_state.heroes[lvl] -= 2
-                    if random.random() < 0.75: st.session_state.heroes[lvl+1] = st.session_state.heroes.get(lvl+1,0)+1; st.success("성공!")
-                    else: st.error("파괴됨")
-                    st.rerun()
-                if cnt >= 200 and cc2.button(f"x100", key=f"f100_{lvl}"): # 100회 합성 복구
-                    st.session_state.heroes[lvl] -= 200
-                    win = sum(1 for _ in range(100) if random.random() < 0.75)
-                    st.session_state.heroes[lvl+1] = st.session_state.heroes.get(lvl+1,0)+win; st.rerun()
-                if st.button(f"💰 판매", key=f"s_{lvl}"): st.session_state.balance += price; st.session_state.heroes[lvl] -= 1; st.rerun()
-                if st.button(f"📦 보관소로", key=f"v_{lvl}"): st.session_state.heroes[lvl] -= 1; st.session_state.vault[lvl] = st.session_state.vault.get(lvl,0)+1; st.rerun()
+        st.write("---")
+        st.write("📊 **유저 랭킹 (Top 10)**")
+        with get_db_conn() as conn:
+            ranking_df = pd.read_sql("SELECT wallet, balance FROM users ORDER BY balance DESC LIMIT 10", conn)
+            st.table(ranking_df)
 
-    with col_v:
-        st.subheader("🏛️ 히어로 보관소")
-        for lvl, vcnt in st.session_state.vault.items():
-            if vcnt > 0:
-                st.markdown(f"<div class='premium-card'><div style='font-size:50px;'>{h_icons.get(lvl)}</div> Lv.{lvl} ({vcnt}개)</div>", unsafe_allow_html=True)
-                if st.button("🎒 꺼내기 (가방으로)", key=f"vout_{lvl}"):
-                    st.session_state.vault[lvl] -= 1; st.session_state.heroes[lvl] = st.session_state.heroes.get(lvl,0)+1; st.rerun()
+# 사이드바 및 기타 탭 (기존 로직 유지)
+with st.sidebar:
+    if not st.session_state.wallet_address:
+        if APP_MODE == "DEMO" and st.button("👑 운영자 연결"):
+            st.session_state.wallet_address, st.session_state.is_admin = OWNER_WALLET, True
+            st.session_state.balance = 1000000.0; st.rerun()
+    else:
+        st.markdown(f"<div class='premium-card'><b>BALANCE</b><h2>{st.session_state.balance:,.2f} WH</h2></div>", unsafe_allow_html=True)
+        if st.button("DISCONNECT"): st.session_state.clear(); st.rerun()
 
-# --- 탭 5: 관리자 ---
-if st.session_state.wallet_address == OWNER_WALLET:
-    with tabs[5]: st.metric("금고 누적 수익", f"{st.session_state.treasury:,.2f} WH")
+@st.fragment(run_every=5)
+def chat_tab():
+    with get_db_conn() as conn:
+        chats = conn.cursor().execute("SELECT wallet, message, time FROM chat ORDER BY id DESC LIMIT 20").fetchall()[::-1]
+    box = "<div class='chat-box'>"
+    for w, m, t in chats:
+        is_sys = "SYSTEM" in w
+        box += f"<div style='margin-bottom:5px;'><b><span class='{'chat-system' if is_sys else ''}'>{w[:6]}..</span></b>: {m} <small style='float:right; color:#444;'>{t}</small></div>"
+    st.markdown(box + "</div>", unsafe_allow_html=True)
+    with st.form("c_f", clear_on_submit=True):
+        msg = st.text_input("메시지", label_visibility="collapsed")
+        if st.form_submit_button("전송") and st.session_state.wallet_address:
+            send_chat(st.session_state.wallet_address, msg); st.rerun()
+with tabs[4]: chat_tab()
