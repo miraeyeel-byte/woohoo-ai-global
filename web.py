@@ -1,135 +1,98 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import time
 
 # 1. 페이지 엔진 설정
-st.set_page_config(page_title="WOOHOO AI | NODE SALE", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="WOOHOO AI | NODE SALE", layout="wide")
 
-# 2. [초고성능 디자인] 델리시움 & 소닉 하이브리드 스타일
+# 2. [디자인] 글씨를 하얗고 선명하게 + 델리시움 감성
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
-
-    /* 전체 배경: 칠흑 같은 블랙 & 유리 질감 */
+    /* 전체 배경: 깊은 블랙 */
     .stApp {
-        background: radial-gradient(circle at top right, #1a1a00, #000000 50%) !important;
-        font-family: 'Space Grotesk', sans-serif !important;
+        background-color: #000000 !important;
+    }
+    
+    /* 기본 글씨: 무조건 순백색 (#FFFFFF) */
+    html, body, p, div, span {
+        color: #FFFFFF !important;
+        font-family: 'Inter', sans-serif;
     }
 
-    /* 타이틀: 소닉 스타일의 네온 골드 글래스 */
-    .main-header {
-        font-family: 'Syncopate', sans-serif;
-        font-weight: 700;
-        font-size: 4rem;
+    /* 제목: 강렬한 네온 골드 */
+    h1 {
+        color: #FFD700 !important;
         text-align: center;
-        background: linear-gradient(to right, #FFD700, #FFFACD, #FFD700);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.5));
-        margin-bottom: 0px;
+        font-weight: 800 !important;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
     }
 
-    /* 델리시움 스타일의 프리미엄 카드 */
+    /* 지표 박스: 하얀 글씨와 황금색 테두리 */
     [data-testid="stMetric"] {
-        background: rgba(15, 15, 15, 0.8) !important;
-        border: 1px solid rgba(255, 215, 0, 0.3) !important;
-        border-radius: 20px !important;
-        padding: 25px !important;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        transition: all 0.4s ease;
-    }
-    [data-testid="stMetric"]:hover {
+        background: #0a0a0a !important;
         border: 1px solid #FFD700 !important;
-        box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
-        transform: translateY(-10px);
+        border-radius: 15px !important;
+        padding: 20px !important;
+    }
+    [data-testid="stMetricValue"] {
+        color: #FFFFFF !important; /* 숫자는 하얗게 */
+        font-weight: bold !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #FFD700 !important; /* 라벨은 황금색 */
     }
 
-    /* 노드 구매 버튼: 압도적인 광채 */
+    /* 버튼: 소닉 스타일 그라데이션 */
     .stButton>button {
-        background: linear-gradient(90deg, #000, #FFD700, #000);
-        background-size: 200% auto;
-        color: white !important;
-        border: 1px solid #FFD700;
-        border-radius: 50px;
-        padding: 20px;
-        font-size: 1.8rem !important;
-        font-family: 'Syncopate', sans-serif;
-        transition: 0.5s;
-        box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
-    }
-    .stButton>button:hover {
-        background-position: right center;
-        box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
-        color: #000 !important;
-        font-weight: bold;
-    }
-
-    /* 진행 바 스타일 (노드 판매 현황) */
-    .stProgress > div > div > div > div {
-        background-color: #FFD700 !important;
+        background: linear-gradient(90deg, #FFD700, #B8860B) !important;
+        color: #000000 !important;
+        font-weight: bold !important;
+        font-size: 20px !important;
+        border-radius: 10px;
+        height: 60px;
+        width: 100%;
+        border: none;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. [상단 비주얼]
-st.markdown("<h1 class='main-header'>HYPER-FUSE NODE</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#888; letter-spacing:5px;'>SOLANA SVM GENESIS EDITION</p>", unsafe_allow_html=True)
-
-st.write(" ")
+# 3. 상단 헤더 (무엇을 파는지 명시)
+st.markdown("<h1>⚡ WOOHOO AI GENESIS NODE SALE</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:20px;'>수천조 규모의 AI 네트워크, 그 주인이 될 기회</p>", unsafe_allow_html=True)
 st.write("---")
 
-# 4. [노드 상태 정보] - 델리시움 레이아웃
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.metric("CURRENT PRICE", "2.40 SOL", "TIER 03")
-with c2:
-    st.metric("TOTAL SOLD", "12,842 / 50,000", "ACTIVE")
-with c3:
-    st.metric("EST. REWARDS", "142% APY", "BOOSTED")
+# 4. 실시간 노드 판매 현황 (핵심 정보)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("판매 가격", "2.40 SOL", "TIER 01")
+with col2:
+    st.metric("남은 수량", "12,842 / 50,000", "🔥 마감 임박")
+with col3:
+    st.metric("예상 수익률", "142.5% APY", "VIP 보상")
 
-# 5. [실시간 판매 현황] - 소닉 노드 사이트 감성
+# 5. 시각적 신뢰감 (네트워크 상태)
 st.write(" ")
-st.markdown("### ⚡ NODE SALE PROGRESS")
-progress = 12842 / 50000
-st.progress(progress)
-st.markdown(f"<p style='text-align:right; color:#FFD700;'>{progress*100:.1f}% ALLOCATED</p>", unsafe_allow_html=True)
+st.markdown("### 📊 GLOBAL NETWORK LIVE FLOW")
+# 차트 데이터 (간결하게)
+df = pd.DataFrame(np.random.randn(20, 1), columns=['Network Power'])
+st.area_chart(df, color="#FFD700")
 
-# 6. [중앙 영역] - 실시간 그래프와 터미널
-col_left, col_right = st.columns([2, 1])
+# 6. 기술력 증명 (해커 스타일 로그)
+st.write("---")
+st.markdown("#### 📡 REAL-TIME SYSTEM LOG")
+st.code("""
+> [SYSTEM] SOLANA NODE V2.4 INITIALIZED
+> [INFO] SECURE CHANNEL ESTABLISHED... OK
+> [SCAN] 128 NEW NODES ACTIVATED IN LAST 1 HOUR
+> [STATUS] READY FOR MINTING
+""", language="bash")
 
-with col_left:
-    st.markdown("#### 📊 GLOBAL NETWORK LATENCY")
-    chart_data = pd.DataFrame(np.random.randn(40, 1), columns=['ms'])
-    st.area_chart(chart_data, color="#FFD700")
-
-with col_right:
-    st.markdown("#### 📡 LIVE SCANNER")
-    # 터미널 느낌의 로그박스
-    st.code("""
-> Connecting to RPC...
-> Block #2918 verified.
-> Node #8821 minted.
-> Security: 100%
-> Target: Global
-    """, language="bash")
-
-# 7. [핵심] 노드 민팅 버튼
+# 7. 구매 버튼 (가장 크게)
 st.write(" ")
-st.write(" ")
-if st.button("MINT YOUR FOUNDER NODE"):
+if st.button("지금 바로 노드 구매하기 (MINT NODE)"):
     st.balloons()
-    st.toast("Initializing Wallet Connection...")
-    time.sleep(1)
-    st.success("SUCCESS: YOUR SEAT IN THE FUTURE IS RESERVED.")
+    st.success("지갑 연결 중... 잠시만 기다려 주십시오.")
 
-# 8. [하단 혜택 설명]
+# 8. 푸터
 st.write("---")
-cols = st.columns(4)
-benefits = ["Airdrop Access", "Governance Power", "Revenue Share", "Early Beta"]
-for i, col in enumerate(cols):
-    col.markdown(f"<div style='text-align:center; padding:10px; border:1px solid #333; border-radius:10px;'>{benefits[i]}</div>", unsafe_allow_html=True)
-
-st.write(" ")
-st.caption("© 2026 WOOHOO AI GLOBAL | POWERED BY SOLANA ATOMIC SVM")
+st.caption("© 2026 WOOHOO AI GLOBAL | 본 사이트는 투자 유치를 위한 공식 세일즈 페이지입니다.")
