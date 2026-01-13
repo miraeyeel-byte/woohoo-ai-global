@@ -4,149 +4,159 @@ import numpy as np
 import random
 import time
 
-# 1. Page Configuration
-st.set_page_config(page_title="WOOHOO AI | GLOBAL", layout="wide")
+# 1. 페이지 엔진 설정
+st.set_page_config(page_title="WOOHOO AI | HYPER-CORE", layout="wide")
 
-# 2. Session State for Coin Balance
+# 2. 세션 상태 관리 (잔액 및 무료 기회)
 if 'balance' not in st.session_state:
     st.session_state.balance = 1000
+if 'free_spins' not in st.session_state:
+    st.session_state.free_spins = 2  # 첫 방문 시 2회 무료 기회
 
-# 3. High-End Cyberpunk Design (White Glow & Gold Neon)
+# 3. [디자인] - 엠보싱 음영 및 시인성 강화 CSS
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;700&display=swap');
     
     .stApp { background-color: #000000 !important; }
 
-    /* All White Text with Strong Glow */
-    html, body, [class*="css"], p, div, span, label {
+    /* 글자 가독성: 다중 그림자로 강력한 음영 효과 */
+    html, body, [class*="st-"] {
         color: #FFFFFF !important;
-        font-family: 'Orbitron', sans-serif !important;
-        text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+        font-family: 'Noto Sans KR', sans-serif !important;
+        text-shadow: 
+            2px 2px 2px #000,
+            -1px -1px 0 #000,  
+            1px -1px 0 #000,
+            -1px 1px 0 #000,
+            1px 1px 0 #000 !important;
     }
 
-    /* Golden Titles with Neon Effect */
-    h1, h2, .gold-text {
+    /* 제목 및 골드 포인트 */
+    h1, h2, h3, .gold-text {
         color: #FFD700 !important;
-        text-align: center;
-        text-shadow: 0 0 25px rgba(255, 215, 0, 0.8) !important;
-        letter-spacing: 3px;
+        font-family: 'Orbitron', sans-serif !important;
+        text-shadow: 0px 0px 15px rgba(255, 215, 0, 0.7) !important;
     }
 
-    /* FOMO Board Animation */
-    .fomo-container {
-        border: 1px solid #FFD700;
-        background: rgba(255, 215, 0, 0.05);
+    /* 메인 전광판 스타일 */
+    .winner-board {
+        background: linear-gradient(90deg, #1a1a1a, #333, #1a1a1a);
+        color: #FFD700;
         padding: 10px;
-        border-radius: 5px;
-        text-align: center;
+        border-top: 2px solid #FFD700;
+        border-bottom: 2px solid #FFD700;
+        font-weight: bold;
         margin-bottom: 20px;
     }
-    .fomo-flash {
-        color: #FFD700 !important;
-        font-size: 14px;
-        animation: blink 1.5s infinite;
-    }
-    @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
-    /* Metric Cards (Delysium Style) */
-    [data-testid="stMetric"] {
-        background: rgba(15, 15, 15, 0.9) !important;
-        border: 1px solid #FFD700 !important;
-        border-radius: 15px !important;
-        padding: 20px !important;
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+    /* 탭 디자인 */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        background-color: #111 !important;
+        border-radius: 5px;
+        color: #bbb !important;
     }
-    [data-testid="stMetricValue"] {
-        color: #FFFFFF !important;
-        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
-    }
-
-    /* Pro Button Style */
-    .stButton>button {
-        background: linear-gradient(90deg, #FFD700, #B8860B) !important;
+    .stTabs [aria-selected="true"] {
+        background-color: #FFD700 !important;
         color: #000 !important;
-        font-weight: 900 !important;
-        font-size: 20px !important;
-        height: 60px;
-        width: 100%;
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 4. FOMO Live Win Logs (Simulated)
-fake_logs = [
-    "🔥 USER 0x8a...f2 JUST WON 5,000 WH (100x JACKPOT)",
-    "💎 ANONYMOUS PLAYER CLAIMED 1,000 WH REWARD",
-    "⚡ NODE HOLDER 0x4d...e1 MINTED 500 WH FROM DICE",
-    "🔥 HUGE WIN! 0x2c...b9 HIT THE GOLDEN 6!"
-]
-st.markdown(f"<div class='fomo-container'><div class='fomo-flash'>{random.choice(fake_logs)}</div></div>", unsafe_allow_html=True)
+# 4. 상단 헤더 & 실시간 당첨자 전광판 (메인 화면 배치)
+st.markdown("<h1 style='text-align: center;'>⚡ WOOHOO AI HYPER-CORE</h1>", unsafe_allow_html=True)
 
-# 5. Header & Stats
-st.markdown("<h1>⚡ WOOHOO AI : HYPER-CORE</h1>", unsafe_allow_html=True)
-st.write(" ")
+st.markdown("""
+    <div class="winner-board">
+        <marquee scrollamount="10">
+            🎊 축하합니다! 0x...a3ef 님이 주사위 잭팟으로 5,000 WH 획득! &nbsp;&nbsp;&nbsp;&nbsp; 
+            🔥 현재 노드 세일 1단계 마감 임박! &nbsp;&nbsp;&nbsp;&nbsp; 
+            💎 0x...77bb 님이 10배 당첨에 성공했습니다! &nbsp;&nbsp;&nbsp;&nbsp;
+            🚀 신규 방문자 무료 기회 2회 제공 중!
+        </marquee>
+    </div>
+    """, unsafe_allow_html=True)
 
-m1, m2, m3 = st.columns(3)
-with m1: st.metric("NODE PRICE", "2.40 SOL", "TIER 01")
-with m2: st.metric("NODES SOLD", "12,842 / 50K", "ACTIVE")
-with m3: st.metric("MY BALANCE", f"{st.session_state.balance} WH", "WALLET")
+# 5. 탭 브라우저 (한글/영어 병기)
+tab1, tab2, tab3 = st.tabs(["💎 네트워크 코어 (NETWORK_CORE)", "🎲 엔터테인먼트 (GAME)", "🛠️ 기술 명세 (TECH_SPEC)"])
 
-st.write("---")
+# --- TAB 1: 메인 정보 ---
+with tab1:
+    st.markdown("### 🌐 제네시스 노드 에코시스템")
+    col1, col2, col3 = st.columns(3)
+    with col1: st.metric("현재가 (PRICE)", "2.40 SOL")
+    with col2: st.metric("판매량 (SOLD)", "12,842 / 50K")
+    with col3: st.metric("보상률 (APY)", "142%")
 
-# 6. ENTERTAINMENT ZONE (The Dice Game)
-st.markdown("<h2>🎰 WOOHOO LUCKY DICE</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'>Bet your WH Coins and aim for the 100x Jackpot!</p>", unsafe_allow_html=True)
+    st.write("---")
+    st.markdown("### 📊 실시간 글로벌 연산력")
+    chart_data = pd.DataFrame(np.random.randn(15, 2), columns=['AI SCAN', 'SECURITY'])
+    st.line_chart(chart_data)
 
-# Betting UI
-game_c1, game_c2 = st.columns([1, 1])
-
-with game_c1:
-    bet_amount = st.radio("SELECT WAGER AMOUNT (WH)", [10, 100, 500, 1000], horizontal=True)
-
-with game_c2:
-    st.write(" ")
-    if st.button("🎲 ROLL THE DICE"):
-        if st.session_state.balance >= bet_amount:
-            # Risk Warning Dialog
-            @st.dialog("⚠️ RISK ACKNOWLEDGMENT")
-            def gamble(amt):
-                st.write(f"You are about to wager **{amt} WH**.")
-                st.error("WARNING: You may lose all your wagered coins.")
-                if st.button("I UNDERSTAND, ROLL NOW"):
-                    st.session_state.balance -= amt
-                    with st.spinner("SCANNING NETWORK..."):
-                        time.sleep(1.2)
-                        res = random.randint(1, 100)
-                        
-                        if res <= 10: # 10% Jackpot (100x)
-                            win = amt * 100
-                            st.session_state.balance += win
-                            st.balloons()
-                            st.success(f"🎊 100x JACKPOT! +{win} WH RECEIVED!")
-                        elif res <= 30: # 20% Small Win (10x)
-                            win = amt * 10
-                            st.session_state.balance += win
-                            st.info(f"⚡ BIG WIN! +{win} WH RECEIVED!")
-                        else: # 70% House Wins
-                            st.error(f"REKT! -{amt} WH ABSORBED BY CORE.")
-                    time.sleep(1)
-                    st.rerun()
-            
-            gamble(bet_amount)
+# --- TAB 2: 게임 센터 (무료 기회 로직 포함) ---
+with tab2:
+    st.markdown("<h2 style='text-align:center;'>🎲 로열 럭키 다이스 (LUCKY DICE)</h2>", unsafe_allow_html=True)
+    
+    # 지갑 상태 표시
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f"#### 💰 내 잔액: `{st.session_state.balance} WH`")
+    with c2:
+        if st.session_state.free_spins > 0:
+            st.markdown(f"#### 🎁 무료 기회: <span style='color:#FF4B4B;'>{st.session_state.free_spins}회 남음</span>", unsafe_allow_html=True)
         else:
-            st.error("Insufficient WH Coins! Purchase Nodes to earn more.")
+            st.markdown("#### 🎁 무료 기회: `소진됨`")
 
-# 7. System Logs
-st.write("---")
-st.code(f"""
-> [SYSTEM] CORE_ENGINE: ONLINE
-> [GAME] HOUSE_EDGE: 70% | STATUS: READY
-> [WALLET] BALANCE: {st.session_state.balance} WH
-> [INFO] CONNECTED TO SOLANA MAINNET
-""", language="bash")
+    bet_val = st.selectbox("배팅액 선택 (BET AMOUNT)", [10, 100, 500, 1000])
 
-st.caption("© 2026 WOOHOO AI GLOBAL | Powered by Solana SVM")
+    if st.button("주사위 굴리기 (ROLL THE DICE)", use_container_width=True):
+        # 기회 체크
+        can_play = False
+        is_free = False
+        
+        if st.session_state.free_spins > 0:
+            can_play = True
+            is_free = True
+        elif st.session_state.balance >= bet_val:
+            can_play = True
+            is_free = False
+        
+        if can_play:
+            if is_free:
+                st.session_state.free_spins -= 1
+                st.toast("무료 기회를 사용합니다!")
+            else:
+                st.session_state.balance -= bet_val
+            
+            # 주사위 로직
+            with st.spinner("결과 대기 중..."):
+                time.sleep(0.5)
+                res = random.randint(1, 100)
+                if res <= 10: # 잭팟
+                    win = bet_val * 100
+                    st.session_state.balance += win
+                    st.balloons()
+                    st.success(f"🎊 대박! 100배 당첨! +{win} WH")
+                elif res <= 40: # 일반 당첨
+                    win = bet_val * 2
+                    st.session_state.balance += win
+                    st.info(f"승리! 2배 당첨! +{win} WH")
+                else:
+                    st.error("REKT! 다음 기회를 노리세요.")
+            st.rerun()
+        else:
+            st.error("잔액이 부족합니다.")
+
+# --- TAB 3: 기술 문서 ---
+with tab3:
+    st.markdown("### 🛠️ 하이퍼-퓨즈 아키텍처 (TECHNICAL)")
+    st.code("""
+// 핵심 프로토콜 명세
+Protocol: Solana L3 Hybrid Integration
+Node Type: Hyper-Fuse v2.4
+Security: ACP (Atomic Compute Proof)
+    """, language="javascript")
+    st.write("전 세계 분산형 GPU 자원을 하나로 통합하여 초거대 언어 모델(LLM)을 최적화합니다.")
+
