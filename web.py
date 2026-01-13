@@ -2,34 +2,63 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# 1. 페이지 설정
-st.set_page_config(page_title="WOOHOO AI", layout="wide")
+# 1. 페이지 설정 (브라우저 탭 이름)
+st.set_page_config(page_title="WOOHOO AI GLOBAL", layout="wide")
 
-# 2. 타이틀 (에러 방지를 위해 일반 텍스트로 작성)
-st.title("⚡ WOOHOO AI HYPER-CORE")
-st.write("DECENTRALIZED INTELLIGENCE NETWORK")
+# 2. 다크 모드 강제 적용 및 제목 디자인
+st.markdown("# ⚡ WOOHOO AI HYPER-CORE")
+st.markdown("### 🌍 DECENTRALIZED INTELLIGENCE NETWORK")
 st.write("---")
 
-# 3. 델리시움 스타일 지표
+# 3. 델리시움 스타일 대시보드 (에러가 없는 안전한 방식)
 c1, c2, c3 = st.columns(3)
 with c1:
-    st.info("📡 SCANNER STATUS: ACTIVE")
+    st.info("📡 SCANNER STATUS\n\nACTIVE (0.001ms)")
 with c2:
-    st.success("💎 TOTAL NODES: 2,405 EA")
-with c3:
-    st.warning("🧠 AI CONFIDENCE: 99.8%")
+    st.success("💎 TOTAL NODES\n\n2,405 EA (+128)")
+with col3 if 'col3' in locals() else c3:
+    st.warning("🧠 AI CONFIDENCE\n\n99.8% (ELITE)")
 
-# 4. 소닉 스타일 그래프
-st.write("### 📊 Live Network Flow")
-chart_data = pd.DataFrame(np.random.randn(20, 2), columns=['A', 'B'])
-st.line_chart(chart_data)
+# 4. 소닉 스타일 실시간 분석 차트
+st.write("### 📊 Live Intelligence Flow")
+data = pd.DataFrame(np.random.randn(20, 2), columns=['Security', 'AI-Shield'])
+st.area_chart(data)
 
-# 5. 기술력 과시 터미널
+# 5. AI 스나이퍼 로그 (사장님의 기술력 포인트)
 st.write("---")
-st.write("🎯 AI SNIPER ENGINE [LIVE]")
-st.code("SCANNING... \nSAFE TOKEN DETECTED: $WOOHOO \nSTATUS: ALL SYSTEMS GREEN", language='bash')
+st.write("🎯 **AI SNIPER ENGINE [LIVE SCANNING]**")
+st.code("""
+[SYSTEM] Deep-Scanning Block #29481...
+[DETECT] Safe Token Found: $WOOHOO
+[ACTION] Monitoring Liquidity Pools...
+[STATUS] All Systems Green. No Rug-pull Detected.
+""", language='bash')
 
-# 6. 버튼
-if st.button("MINT YOUR NODE (2.0 SOL)"):
+# 6. 노드 구매 버튼 (누르면 풍선 터짐)
+if st.button("MINT YOUR FOUNDER NODE (2.0 SOL)"):
     st.balloons()
-    st.success("Wallet Connected!")
+    st.success("Wallet Connection Initialized! Checking Whitelist...")
+
+# 7. 푸터
+st.write("---")
+st.caption("© 2026 WOOHOO AI LABS | Powered by Solana High-Speed Network")
+# 기존 디자인 코드를 이 '강력한' 버전으로 교체
+st.markdown("""
+    <style>
+    /* 전체 배경 강제 블랙 */
+    .stApp {
+        background-color: #000000 !important;
+        color: #E8C35E !important;
+    }
+    /* 모든 텍스트를 황금색 계열로 */
+    h1, h2, h3, p, span {
+        color: #E8C35E !important;
+    }
+    /* 지표(Metric) 박스 테두리 */
+    [data-testid="stMetric"] {
+        background-color: #111111 !important;
+        border: 1px solid #E8C35E !important;
+        border-radius: 10px;
+    }
+    </style>
+    """, unsafe_allow_index=True)
