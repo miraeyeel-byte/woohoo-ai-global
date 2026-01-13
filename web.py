@@ -16,7 +16,7 @@ with c1:
     st.info("📡 SCANNER STATUS\n\nACTIVE (0.001ms)")
 with c2:
     st.success("💎 TOTAL NODES\n\n2,405 EA (+128)")
-with col3 if 'col3' in locals() else c3:
+with col3
     st.warning("🧠 AI CONFIDENCE\n\n99.8% (ELITE)")
 
 # 4. 소닉 스타일 실시간 분석 차트
@@ -62,3 +62,4 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_index=True)
+
