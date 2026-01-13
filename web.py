@@ -6,12 +6,11 @@ import time
 import streamlit.components.v1 as components
 
 # 1. 페이지 설정
-st.set_page_config(page_title="WOOHOO AI | PRO MASTER", layout="wide")
+st.set_page_config(page_title="WOOHOO AI | MASTER", layout="wide")
 
-# 2. 운영자 지갑 주소
+# 2. 운영자 정보 및 세션 관리
 OWNER_WALLET = "7kLoYeYu1nNRw7EhA7FWNew2f1KWpe6mL7zpcMvntxPx"
 
-# 3. 세션 상태 관리
 if 'wallet_address' not in st.session_state:
     st.session_state.wallet_address = None
 if 'balance' not in st.session_state:
@@ -19,21 +18,37 @@ if 'balance' not in st.session_state:
 if 'game_active' not in st.session_state:
     st.session_state.game_active = False
 
-# 4. [디자인] 강력한 가독성 테마
+# 3. [디자인] 귀여운 네온 스타일 UI
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
-    .stApp { background-color: #050505 !important; color: #E0E0E0 !important; font-family: 'Noto Sans KR', sans-serif !important; }
-    h1, h2, h3 { color: #FFD700 !important; font-weight: 900 !important; }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Jua&display=swap');
+    
+    .stApp { background-color: #0A0A0A !important; color: #E0E0E0 !important; font-family: 'Noto Sans KR', sans-serif !important; }
+    
+    /* 귀여운 제목 폰트 */
+    h1, h2, h3 { font-family: 'Jua', sans-serif !important; color: #FFD700 !important; }
+
+    /* 주사위 게임용 밝은 카드 디자인 */
+    .dice-card {
+        background: white;
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        border: 5px solid #FF007A; /* 네온 핑크 */
+        box-shadow: 0 0 20px #FF007A;
+        margin: 20px 0;
+    }
+    .dice-text { color: #000 !important; font-size: 24px; font-weight: bold; }
+    .dice-number { font-size: 80px !important; margin: 10px 0; color: #FF007A !important; }
+    
+    /* 탭 스타일 */
     .stTabs [aria-selected="true"] { background-color: #FFD700 !important; color: #000 !important; font-weight: bold; }
-    .status-box { border: 2px solid #FFD700; padding: 15px; border-radius: 10px; background: rgba(255, 215, 0, 0.05); }
     </style>
     """, unsafe_allow_html=True)
 
-# 5. 상단 헤더
-st.markdown("<h1 style='text-align: center;'>⚡ WOOHOO AI HYPER-CORE</h1>", unsafe_allow_html=True)
+# 4. 헤더 및 사이드바
+st.markdown("<h1 style='text-align: center; font-size: 50px;'>⚡ WOOHOO AI HYPER-CORE</h1>", unsafe_allow_html=True)
 
-# 6. 사이드바 - 지갑 센터
 with st.sidebar:
     st.markdown("### 🔑 지갑 센터")
     if not st.session_state.wallet_address:
@@ -43,52 +58,50 @@ with st.sidebar:
     else:
         is_owner = (st.session_state.wallet_address == OWNER_WALLET)
         st.markdown(f"""
-            <div class="status-box">
-                <p style="margin:0; font-size:12px; color:#888;">지갑 주소</p>
+            <div style="background:#222; padding:15px; border-radius:15px; border:2px solid #FFD700;">
+                <p style="margin:0; font-size:12px; color:#888;">MY WALLET</p>
                 <p style="margin:0; font-size:14px; color:#FFD700; font-weight:bold;">{st.session_state.wallet_address[:12]}...</p>
-                <p style="margin:0; font-size:12px; color:#888; margin-top:10px;">보유 잔액</p>
+                <hr>
+                <p style="margin:0; font-size:12px; color:#888;">BALANCE</p>
                 <p style="margin:0; font-size:24px; font-weight:bold; color:#FFF;">{st.session_state.balance:,.2f} WH</p>
             </div>
         """, unsafe_allow_html=True)
-        if is_owner: st.warning("⚠️ 운영자(MASTER) 권한 활성화")
+        if is_owner: st.warning("👑 운영자 모드")
         if st.button("연결 해제"):
             st.session_state.wallet_address = None
-            st.session_state.game_active = False
             st.rerun()
 
-# 7. 탭 메뉴 구성
+# 5. 탭 메뉴
 menu = ["📊 네트워크", "🛠️ AI 노드 채굴", "🕹️ 닷지 게임", "🎲 럭키 주사위"]
 if st.session_state.wallet_address == OWNER_WALLET:
-    menu.append("👑 관리자")
-
+    menu.append("👑 관리자 전용")
 tabs = st.tabs(menu)
 
-# --- 탭 1 & 2 (네트워크 및 노드 정보) ---
+# --- 탭 1: 네트워크 (코인 정체성 설명) ---
 with tabs[0]:
-    st.markdown("### 🌐 WOOHOO AI란 무엇인가요?")
-    st.info("**'인공지능을 돌리기 위한 거대한 분산 에너지'**입니다. 유저들이 제공하는 GPU 파워로 AI가 연산되고, 그 생태계의 화폐가 WH 코인입니다.")
-    st.line_chart(np.random.randn(20, 1))
-
-with tabs[1]:
-    st.markdown("### 🛠️ 내 노드 채굴 현황")
-    st.write("GPU 기여를 통해 실시간으로 WH 코인을 생산 중입니다.")
-    st.progress(65, text="GPU 연산 가동률 65%")
-
-# --- 탭 3: 미니게임 (난이도 및 참가비 시스템) ---
-with tabs[2]:
-    st.markdown("### 🕹️ 닷지 생존 미션 (P2E)")
-    st.warning("⚠️ 게임 시작 시 **참가비 0.1 WH**가 지갑에서 차감됩니다.")
+    st.markdown("### 🌐 WOOHOO AI 코인이란?")
+    st.info("""
+    **WOOHOO AI는 '인공지능 에너지'입니다.** 전 세계의 GPU 파워를 하나로 묶어 AI를 돌리고, 그 대가로 WH 코인을 주고받는 생태계입니다. 
+    사용자는 코인으로 AI 서비스를 구매하고, 채굴자는 컴퓨터를 빌려주고 코인을 법니다.
+    """)
     
-    col_opt1, col_opt2 = st.columns(2)
-    with col_opt1:
-        diff = st.radio("난이도 선택", ["하 (보통)", "중 (어려움)", "상 (매우 어려움)"], horizontal=True)
-    with col_opt2:
-        if diff == "하 (보통)": st.info("보상: 10초당 0.05 WH")
-        elif diff == "중 (어려움)": st.info("보상: 10초당 0.1 WH")
-        else: st.error("보상: 10초당 1.0 WH (강력 추천)")
+    st.line_chart(np.random.randn(15, 1))
+
+# --- 탭 2: 채굴 ---
+with tabs[1]:
+    st.subheader("🛠️ 내 채굴기 상태")
+    st.progress(85, text="GPU 연산 중... (채굴 효율 85%)")
+    st.metric("오늘의 예상 수익", "1.25 WH", "+0.05")
+
+# --- 탭 3: 닷지 게임 (보상 체계 수정) ---
+with tabs[2]:
+    st.markdown("### 🕹️ 60초 생존 챌린지 (P2E)")
+    st.write("참가비: **0.1 WH** (시작 시 자동 차감)")
+    
+    diff = st.selectbox("난이도 선택", ["하 (10초당 0.05 WH)", "중 (10초당 0.1 WH)", "상 (10초당 1.0 WH)"])
 
     if not st.session_state.game_active:
-        if st.button("🚀 게임 시작 (참가비 0.1 WH 차감)", use_container_width=True):
+        if st.button("🚀 게임 시작", use_container_width=True):
             if st.session_state.balance >= 0.1:
                 st.session_state.balance -= 0.1
                 st.session_state.game_active = True
@@ -96,118 +109,96 @@ with tabs[2]:
             else:
                 st.error("잔액이 부족합니다!")
     else:
-        # 난이도 수치 설정
-        speed_rate = 1.0
-        if "중" in diff: speed_rate = 1.5
-        if "상" in diff: speed_rate = 2.5
-
-        if st.button("⏹️ 게임 종료 및 리셋"):
-            st.session_state.game_active = False
-            st.rerun()
-
+        st.button("⏹️ 리셋", on_click=lambda: setattr(st.session_state, 'game_active', False))
+        
+        # 난이도별 속도 설정
+        spd = 1.0 if "하" in diff else 1.8 if "중" in diff else 3.0
+        
         game_js = f"""
         <div style="text-align:center;">
-            <canvas id="dodgeCanvas" width="500" height="350" style="border:3px solid #FFD700; background:#000; cursor:crosshair;"></canvas>
-            <h2 id="timerDisplay" style="color:#FFD700;">생존 시간: 0.00초</h2>
-            <p id="rewardHint" style="color:#888;">마우스가 화면을 나가면 즉시 종료됩니다!</p>
+            <canvas id="c" width="500" height="350" style="border:3px solid #FFD700; background:#000; cursor:none;"></canvas>
+            <h2 id="t" style="color:#FFD700;">생존 시간: 0.00초</h2>
         </div>
         <script>
-            const canvas = document.getElementById("dodgeCanvas");
-            const ctx = canvas.getContext("2d");
-            let startTime = Date.now();
-            let player = {{ x: 250, y: 175, r: 6 }};
-            let bullets = [];
-            let gameOver = false;
-            let finalTime = 0;
-            const speedMult = {speed_rate};
-
-            canvas.onmousemove = e => {{
-                if(gameOver) return;
-                const rect = canvas.getBoundingClientRect();
-                player.x = e.clientX - rect.left;
-                player.y = e.clientY - rect.top;
+            const cv = document.getElementById("c"), x = cv.getContext("2d");
+            let s = Date.now(), p = {{x:250, y:175, r:6}}, b = [], go = false, ft = 0;
+            cv.onmousemove = e => {{ 
+                const r = cv.getBoundingClientRect(); 
+                p.x = e.clientX - r.left; p.y = e.clientY - r.top; 
             }};
-
-            canvas.onmouseleave = () => {{
-                if(!gameOver) {{ gameOver = true; finalTime = (Date.now() - startTime)/1000; }}
-            }};
-
-            function spawnBullet() {{
-                const side = Math.floor(Math.random() * 4);
-                let b = {{ r: 3, x: 0, y: 0, vx: 0, vy: 0 }};
-                if(side==0){{ b.x=0; b.y=Math.random()*350; b.vx=(2+Math.random()*2)*speedMult; b.vy=(Math.random()-0.5)*4; }}
-                else if(side==1){{ b.x=500; b.y=Math.random()*350; b.vx=(-2-Math.random()*2)*speedMult; b.vy=(Math.random()-0.5)*4; }}
-                else if(side==2){{ b.x=Math.random()*500; b.y=0; b.vx=(Math.random()-0.5)*4; b.vy=(2+Math.random()*2)*speedMult; }}
-                else {{ b.x=Math.random()*500; b.y=350; b.vx=(Math.random()-0.5)*4; b.vy=(-2-Math.random()*2)*speedMult; }}
-                bullets.push(b);
+            cv.onmouseleave = () => {{ if(!go) {{ go=true; ft=(Date.now()-s)/1000; }} }};
+            function spawn() {{
+                const side = Math.floor(Math.random()*4);
+                let blt = {{r:3, x:0, y:0, vx:0, vy:0}};
+                let v = (2+Math.random()*2)*{spd};
+                if(side==0){{blt.x=0; blt.y=Math.random()*350; blt.vx=v; blt.vy=(Math.random()-0.5)*4;}}
+                else if(side==1){{blt.x=500; blt.y=Math.random()*350; blt.vx=-v; blt.vy=(Math.random()-0.5)*4;}}
+                else if(side==2){{blt.x=Math.random()*500; blt.y=0; blt.vx=(Math.random()-0.5)*4; blt.vy=v;}}
+                else {{blt.x=Math.random()*500; blt.y=350; blt.vx=(Math.random()-0.5)*4; blt.vy=-v;}}
+                b.push(blt);
             }}
-
-            function update() {{
-                if(gameOver) return;
-                let elapsed = (Date.now() - startTime) / 1000;
-                document.getElementById("timerDisplay").innerText = "생존 시간: " + elapsed.toFixed(2) + "초";
-                if(bullets.length < 30 + (elapsed*2)) spawnBullet();
-                bullets.forEach((b, i) => {{
-                    b.x += b.vx; b.y += b.vy;
-                    if(b.x<-10||b.x>510||b.y<-10||b.y>360) bullets.splice(i, 1);
-                    let dx = b.x - player.x; let dy = b.y - player.y;
-                    if(Math.sqrt(dx*dx+dy*dy) < b.r + player.r) {{ gameOver = true; finalTime = elapsed; }}
+            function loop() {{
+                if(go) return;
+                let el = (Date.now()-s)/1000;
+                document.getElementById("t").innerText = "생존 시간: " + el.toFixed(2) + "초";
+                if(b.length < 20 + el*2) spawn();
+                b.forEach((i, idx) => {{
+                    i.x+=i.vx; i.y+=i.vy;
+                    if(i.x<0||i.x>500||i.y<0||i.y>350) b.splice(idx,1);
+                    if(Math.hypot(i.x-p.x, i.y-p.y) < i.r+p.r) {{ go=true; ft=el; }}
                 }});
+                x.clearRect(0,0,500,350);
+                x.fillStyle="#FFD700"; x.beginPath(); x.arc(p.x,p.y,p.r,0,7); x.fill();
+                x.fillStyle="#F44"; b.forEach(i=>{{x.beginPath(); x.arc(i.x,i.y,i.r,0,7); x.fill();}});
+                if(go) {{ x.fillStyle="#F44"; x.font="30px Jua"; x.fillText("GAME OVER", 170, 160); x.fillText(ft.toFixed(2)+"초 생존", 185, 200); }}
+                requestAnimationFrame(loop);
             }}
-
-            function draw() {{
-                ctx.clearRect(0,0,500,350);
-                if(!gameOver) {{
-                    ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = "#FF4B4B"; bullets.forEach(b => {{ ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill(); }});
-                }} else {{
-                    ctx.fillStyle = "#FF4B4B"; ctx.font = "bold 30px sans-serif"; ctx.fillText("GAME OVER", 160, 150);
-                    ctx.fillStyle = "#FFF"; ctx.font = "20px sans-serif"; ctx.fillText(finalTime.toFixed(2) + "초 생존!", 190, 190);
-                    ctx.fillStyle = "#FFD700"; ctx.font = "16px sans-serif"; ctx.fillText("난이도별 보상 조건 확인 후 수령하세요", 130, 230);
-                }}
-                requestAnimationFrame(() => {{ update(); draw(); }});
-            }}
-            draw();
+            loop();
         </script>
         """
         components.html(game_js, height=500)
-        
-        st.write("보상은 10초 단위로 계산됩니다.")
-        if st.button("🎁 보상 수령하기"):
-            # 실제로는 스코어를 연동해야 하지만 시뮬레이션으로 수령 버튼 구현
-            st.session_state.balance += 0.1 # 예시 보상
+        if st.button("🎁 보상 받기"):
+            st.session_state.balance += 0.1
             st.success("보상이 지급되었습니다!")
             st.session_state.game_active = False
             st.rerun()
 
-# --- 탭 4: 럭키 주사위 (완벽 복구) ---
+# --- 탭 4: 럭키 주사위 (귀여운 카드 UI 적용) ---
 with tabs[3]:
     st.markdown("### 🎲 럭키 주사위 (LUCKY DICE)")
-    st.write("주사위 눈이 4, 5, 6이 나오면 배팅액의 2배를 드립니다!")
     
-    bet = st.selectbox("배팅액 (WH)", [10, 50, 100, 500])
+    # [수정] 밝은 배경의 카드 섹션
+    st.markdown("""
+        <div class="dice-card">
+            <p class="dice-text">🎰 오늘의 운을 시험해 보세요! 🎰</p>
+            <p class="dice-text" style="font-size:16px; color:#666;">눈이 4, 5, 6이 나오면 배팅액의 2배!</p>
+    """, unsafe_allow_html=True)
     
-    if st.button("주사위 던지기!", use_container_width=True):
-        if st.session_state.balance >= bet:
-            st.session_state.balance -= bet
-            with st.spinner("던지는 중..."):
-                time.sleep(0.5)
-                res = random.randint(1, 6)
-                st.title(f"🎲 {res}")
-                if res >= 4:
-                    st.session_state.balance += (bet * 2)
-                    st.balloons()
-                    st.success(f"축하합니다! {bet * 2} WH 당첨!")
-                else:
-                    st.error("아쉽네요. 다음 기회에!")
+    # 주사위 결과가 있을 때만 숫자를 크게 보여줌
+    if 'last_dice' in st.session_state:
+        st.markdown(f'<p class="dice-number">{st.session_state.last_dice}</p>', unsafe_allow_html=True)
+    else:
+        st.markdown('<p class="dice-number">🎲</p>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    bet_val = st.selectbox("배팅할 금액을 고르세요 (WH)", [10, 50, 100, 500])
+    
+    if st.button("🔴 주사위 던지기!!", use_container_width=True):
+        if st.session_state.balance >= bet_val:
+            st.session_state.balance -= bet_val
+            res = random.randint(1, 6)
+            st.session_state.last_dice = res
+            if res >= 4:
+                st.session_state.balance += (bet_val * 2)
+                st.balloons()
             st.rerun()
         else:
-            st.error("잔액이 부족합니다.")
+            st.error("잔액이 부족해요! 😥")
 
-# --- 탭 5: 관리자 패널 (보안 유지) ---
+# --- 탭 5: 관리자 ---
 if st.session_state.wallet_address == OWNER_WALLET:
     with tabs[4]:
         st.subheader("👑 마스터 통제실")
-        st.write("전체 유저 보상률과 시스템을 통제합니다.")
-        st.metric("시스템 총 수익", "12,480 SOL")
-        st.button("수익금 정산하기")
+        st.metric("시스템 누적 수익", "12,482 SOL")
+        st.button("전체 시스템 초기화")
