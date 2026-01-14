@@ -1,30 +1,34 @@
 # ===============================
-# WOOHOO V17.3 - 범죄자 체포 & 보안 통합
+# WOOHOO V17.3 - Virtual Crime Hunter
 # ===============================
 
-import os
+# -------------------------------
+# 1. IMPORTS
+# -------------------------------
 import streamlit as st
 import pandas as pd
 import numpy as np
 import random
 import time
 import sqlite3
+import html
 import threading
 import requests
+import os
 import datetime
-import html
 
-# ===============================
-# GLOBAL CONFIG
-# ===============================
-st.set_page_config(page_title="WOOHOO V17.3 Catch Criminals", layout="wide")
+# -------------------------------
+# 2. CONFIG / GLOBALS
+# -------------------------------
+st.set_page_config(page_title="WOOHOO V17.3 - Crime Hunter", layout="wide")
 db_lock = threading.Lock()
-FUSE_RATE = 0.7  # 강화 성공 기본 확률
+FUSE_RATE = 0.7  # 강화 성공 확률 기본
 
-# ===============================
-# DB PATH & PERSISTENT STORAGE
-# ===============================
-DB_PATH = os.getenv("DB_PATH", "woohoo_master_v17.db")
+# -------------------------------
+# 3. DB INITIALIZATION
+# -------------------------------
+DB_PATH = "woohoo_master_v17.db"
+# 폴더 자동 생성
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
@@ -32,43 +36,37 @@ if db_dir and not os.path.exists(db_dir):
 def get_db_conn():
     return sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
 
-# ===============================
-# DB INIT
-# ===============================
 def init_db():
     with get_db_conn() as conn:
         c = conn.cursor()
-        # 유저 / 지갑
-        c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, hunter_level INTEGER)")
-        # 범죄자 레벨
-        c.execute("CREATE TABLE IF NOT EXISTS criminals (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet,lvl))")
-        # 감옥 (보관)
-        c.execute("CREATE TABLE IF NOT EXISTS jail (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet,lvl))")
-        # 시스템 상태 (재무)
+        # 유저, 범죄자, 시스템, 채팅
+        c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, nodes INTEGER)")
+        c.execute("CREATE TABLE IF NOT EXISTS criminals (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, lvl INTEGER)")
+        c.execute("CREATE TABLE IF NOT EXISTS vault (wallet TEXT, criminal_id INTEGER, count INTEGER, PRIMARY KEY(wallet,criminal_id))")
         c.execute("CREATE TABLE IF NOT EXISTS system_state (id INTEGER PRIMARY KEY CHECK(id=1), treasury REAL)")
         c.execute("INSERT OR IGNORE INTO system_state VALUES (1,1000)")
-        # 채팅 및 공지
         c.execute("CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, wallet TEXT, message TEXT, time TEXT)")
-        # 라이선스/티어
-        c.execute("CREATE TABLE IF NOT EXISTS licenses (wallet TEXT PRIMARY KEY, tier TEXT, expiry TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS licenses (wallet TEXT PRIMARY KEY, expiry_time TEXT)")
         conn.commit()
 
 init_db()
 
-# ===============================
-# SESSION INIT
-# ===============================
+# -------------------------------
+# 4. SESSION INIT
+# -------------------------------
 def init_session():
     defaults = {
         "wallet_address": None,
         "is_admin": False,
-        "balance": 0.01,
-        "hunter_level": 1,
-        "criminals": {i:0 for i in range(1,21)},
-        "jail": {i:0 for i in range(1,21)},
-        "cur_action": None,
-        "action_result": None,
-        "cur_bet": 1
+        "balance": 0.1,  # 초기 소량 SOL
+        "owned_nodes": 0,
+        "criminals": {i:0 for i in range(1,21)},  # 20레벨 범죄자
+        "vault": {i:0 for i in range(1,21)},
+        "op_lock": False,
+        "current_capture": None,
+        "capture_result": None,
+        "capture_paid": False,
+        "cur_bounty": 0.01
     }
     for k,v in defaults.items():
         if k not in st.session_state:
@@ -76,189 +74,188 @@ def init_session():
 
 init_session()
 
-# ===============================
-# LICENSE CHECK
-# ===============================
-def check_license(wallet):
-    if not wallet: return False
-    with get_db_conn() as conn:
-        row = conn.execute("SELECT tier,expiry FROM licenses WHERE wallet=?", (wallet,)).fetchone()
-    if not row: return False
-    tier, expiry_str = row
-    expiry = datetime.datetime.strptime(expiry_str, "%Y-%m-%d %H:%M:%S")
-    if expiry < datetime.datetime.now(): return False
-    return True
+# -------------------------------
+# 5. TRANSACTION
+# -------------------------------
+def process_transaction(user_delta, house_delta):
+    if not st.session_state.wallet_address:
+        return False
+    if st.session_state.balance + user_delta < 0:
+        return False
 
-def grant_license(wallet, tier, hours):
-    expiry = datetime.datetime.now() + datetime.timedelta(hours=hours)
-    with db_lock:
-        with get_db_conn() as conn:
-            conn.execute("INSERT OR REPLACE INTO licenses VALUES (?,?,?)",
-                         (wallet, tier, expiry.strftime("%Y-%m-%d %H:%M:%S")))
-            conn.commit()
-
-# ===============================
-# TRANSACTION
-# ===============================
-def process_transaction(user_delta, house_delta=0):
-    if not st.session_state.wallet_address: return False
-    if st.session_state.balance + user_delta < 0: return False
     with db_lock:
         with get_db_conn() as conn:
             conn.execute("BEGIN IMMEDIATE")
-            # 유저 잔액 업데이트
-            new_balance = st.session_state.balance + user_delta
             c = conn.cursor()
-            c.execute("INSERT OR REPLACE INTO users VALUES (?,?,?)",
-                      (st.session_state.wallet_address, new_balance, st.session_state.hunter_level))
-            # 시스템 재무 업데이트
-            c.execute("UPDATE system_state SET treasury = treasury + ? WHERE id=1",(house_delta,))
-            # 범죄자/감옥 상태 저장
+            new_balance = st.session_state.balance + user_delta
+            c.execute(
+                "INSERT OR REPLACE INTO users VALUES (?,?,?)",
+                (st.session_state.wallet_address, new_balance, st.session_state.owned_nodes)
+            )
+            c.execute(
+                "UPDATE system_state SET treasury = treasury + ? WHERE id=1",
+                (house_delta,)
+            )
             for lvl in range(1,21):
-                c.execute("INSERT OR REPLACE INTO criminals VALUES (?,?,?)",
-                          (st.session_state.wallet_address, lvl, st.session_state.criminals[lvl]))
-                c.execute("INSERT OR REPLACE INTO jail VALUES (?,?,?)",
-                          (st.session_state.wallet_address, lvl, st.session_state.jail[lvl]))
+                c.execute(
+                    "INSERT OR REPLACE INTO vault VALUES (?,?,?)",
+                    (st.session_state.wallet_address, lvl, st.session_state.vault[lvl])
+                )
             conn.commit()
             st.session_state.balance = new_balance
     return True
 
-# ===============================
-# TELEGRAM ALERT
-# ===============================
+# -------------------------------
+# 6. SECURITY ENGINE
+# -------------------------------
+FIREWALL_THRESHOLD = 80
+def get_visitor_ip():
+    try:
+        ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0]
+        if not ip: ip = st.context.headers.get("X-Real-IP", "127.0.0.1")
+        return ip
+    except:
+        return "127.0.0.1"
+
+def check_firewall():
+    if st.session_state.get("is_admin"):
+        return True, 0, ""
+    ip = get_visitor_ip()
+    try:
+        url = f"http://ip-api.com/json/{ip}?fields=status,countryCode,proxy,hosting}"
+        res = requests.get(url, timeout=2).json()
+        risk_score = 0
+        reasons = []
+        if res.get("proxy"): risk_score += 40; reasons.append("VPN/Proxy")
+        if res.get("hosting"): risk_score += 30; reasons.append("Hosting/Server")
+        if res.get("countryCode") != "KR": risk_score += 20; reasons.append("Foreign IP")
+        if risk_score >= FIREWALL_THRESHOLD:
+            st.error(f"⚠️ [보안 위협 감지] 접속 제한 (Risk: {risk_score})")
+            st.info(f"사유: {', '.join(reasons)}")
+            st.stop()
+        return True, risk_score, ", ".join(reasons)
+    except:
+        return True, 0, "Security Engine Bypass (Error)"
+
+can_proceed, current_risk, risk_desc = check_firewall()
+
+# -------------------------------
+# 7. TELEGRAM ALERT
+# -------------------------------
 def send_telegram_alert(message):
-    token = "YOUR_BOT_TOKEN" 
-    chat_id = "@FuckHoneypot"   
+    token = "YOUR_BOT_TOKEN"
+    chat_id = "@FuckHoneypot"
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
-        params = {"chat_id": chat_id, "text": f"🚨 [FuckHoneypot 실시간 감지]\n{message}"}
+        params = {"chat_id": chat_id, "text": f"🚨 [Crime Hunter Alert]\n{message}"}
         requests.get(url, params=params, timeout=3)
     except:
         pass
 
-# ===============================
-# SECURITY / FIREWALL
-# ===============================
-FIREWALL_THRESHOLD = 80
-def get_visitor_ip():
-    try:
-        ip = st.context.headers.get("X-Forwarded-For","").split(",")[0]
-        if not ip: ip = st.context.headers.get("X-Real-IP","127.0.0.1")
-        return ip
-    except: return "127.0.0.1"
+# -------------------------------
+# 8. CRIMINAL SCAN / CAPTURE
+# -------------------------------
+def scan_criminal_level(lvl):
+    fail_rate = 0.2 + (lvl-1)*0.05  # 레벨별 기본 실패율
+    return min(fail_rate, 0.95)
 
-def check_firewall():
-    if st.session_state.get("is_admin"): return True,0,""
-    ip = get_visitor_ip()
-    try:
-        url = f"http://ip-api.com/json/{ip}?fields=status,countryCode,proxy,hosting"
-        res = requests.get(url, timeout=2).json()
-        risk_score = 0; reasons=[]
-        if res.get("proxy"): risk_score+=40; reasons.append("VPN/Proxy")
-        if res.get("hosting"): risk_score+=30; reasons.append("Hosting/Server")
-        if res.get("countryCode")!="KR": risk_score+=20; reasons.append("Foreign IP")
-        if risk_score>=FIREWALL_THRESHOLD:
-            st.error(f"⚠️ [보안 위협] Risk {risk_score} 점. 접속 차단됨")
-            st.info(f"사유: {', '.join(reasons)}")
-            st.stop()
-        return True,risk_score,", ".join(reasons)
-    except: return True,0,"Security Engine Bypass (Error)"
+def capture_criminal(lvl, use_retrial=False, reinforcement=0):
+    base_fail = scan_criminal_level(lvl)
+    adjusted_fail = base_fail - 0.1*reinforcement
+    if use_retrial:
+        adjusted_fail -= 0.1  # 재판권 사용시 10% 감소
+    return random.random() > adjusted_fail
 
-check_firewall()
+# -------------------------------
+# 9. UI STYLE
+# -------------------------------
+st.markdown("""
+<style>
+.stApp {background:#000;color:white;}
+.glow {color:#FFD700;text-shadow:0 0 10px #000;}
+.card {border:2px solid #FFD700;border-radius:15px;padding:15px;margin:10px;background:#111;}
+.criminal {border:1px solid #FFD700;border-radius:12px;padding:10px;margin:5px;text-align:center;}
+</style>
+""", unsafe_allow_html=True)
 
-# ===============================
-# STREAMLIT HEADER & SIDEBAR
-# ===============================
-st.markdown("<h1 style='text-align:center;color:#FFD700;'>🔥 범죄자 체포 & 보안 V17.3 🔥</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;color:#fff;'>개발자는 펌프펀 사기 경험 후 홧김에 만들었으며, 같은 피해자가 없기를 바람</p>", unsafe_allow_html=True)
+# -------------------------------
+# 10. HEADER / LOGIN
+# -------------------------------
+st.markdown("<h1 class='glow' style='text-align:center'>⚡ WOOHOO Crime Hunter V17.3</h1>", unsafe_allow_html=True)
 
 with st.sidebar:
     if not st.session_state.wallet_address:
-        if st.button("👑 접속"):
-            st.session_state.wallet_address = "USER_"+str(random.randint(1000,9999))
-            st.session_state.balance = 0.01
-            st.session_state.hunter_level = 1
+        if st.button("👑 Admin Login"):
+            st.session_state.wallet_address = "ADMIN"
+            st.session_state.is_admin = True
             st.rerun()
     else:
-        st.markdown(f"<div style='background:#111;color:#FFD700;padding:10px;border-radius:10px;text-align:center;'>Wallet: {st.session_state.wallet_address}<br>Balance: {st.session_state.balance:.3f} SOL<br>Hunter Lv: {st.session_state.hunter_level}</div>", unsafe_allow_html=True)
-        if st.button("로그아웃"):
-            for k in ["wallet_address","balance","hunter_level","criminals","jail","cur_action","action_result","cur_bet"]:
+        st.markdown(f"<div class='card'><h2 class='glow'>{st.session_state.balance:.3f} SOL</h2></div>", unsafe_allow_html=True)
+        if st.button("Logout"):
+            for k in st.session_state.keys():
                 st.session_state[k] = None
             st.rerun()
 
-# ===============================
-# TABS: 범죄자 / 리더보드 / 프리미엄
-# ===============================
-tabs = st.tabs(["🚨 범죄자 체포","🏆 리더보드","📊 프리미엄 리포트"])
+# -------------------------------
+# 11. TABS
+# -------------------------------
+tabs = st.tabs(["📊 Dashboard","🛡️ Crime Capture","🏛️ Vault","🏆 Leaderboard"])
 
-# ---------- 범죄자 체포 ----------
+# ---------- DASHBOARD ----------
 with tabs[0]:
-    st.markdown("<h3 style='color:#FFD700;'>범죄자 레벨별 체포</h3>", unsafe_allow_html=True)
-    icons = ["","👤","👹","💀","🕵️","🛡️","💣","👺","👻","👽","🤖","🧟","👻","👹","🦹","🦹‍♂️","🧛","🧟‍♀️","👿","😈","👺"]
-    for lvl in range(1,21):
-        cnt = st.session_state.criminals[lvl]
-        if cnt>0:
-            st.markdown(f"<div style='border:1px solid #FFD700;padding:5px;margin:3px;border-radius:5px;'>{icons[lvl]} Lv.{lvl} x {cnt}</div>", unsafe_allow_html=True)
-            c1,c2,c3,c4 = st.columns(4)
-            # 강화
-            if lvl<20 and cnt>=1:
-                if c1.button("강화",key=f"f{lvl}"):
-                    # 실패율 레벨 기반
-                    fail_rate = 0.2 + (lvl-3)*0.1 if lvl>=3 else 0.2
-                    if random.random() > fail_rate: st.session_state.criminals[lvl+1]+=1
-                    st.session_state.criminals[lvl]-=1
-                    process_transaction(0,0)
-                    st.rerun()
-            # 감옥
-            if c2.button("감옥",key=f"v{lvl}"):
-                st.session_state.criminals[lvl]-=1
-                st.session_state.jail[lvl]+=1
-                # 보상: 체포 성공 SOL
-                reward = 0.01 * lvl
-                process_transaction(reward,-reward)
-                send_telegram_alert(f"{st.session_state.wallet_address} 체포 성공! Lv.{lvl} 범죄자 감옥 이동, 보상 {reward:.3f} SOL")
-                st.success(f"🎉 체포 성공! +{reward:.3f} SOL")
-                st.rerun()
-            # 판매
-            if c3.button("판매",key=f"s{lvl}"):
-                st.session_state.criminals[lvl]-=1
-                reward = 0.005 * lvl
-                process_transaction(reward,-reward)
-                st.info(f"범죄자 판매 완료 +{reward:.3f} SOL")
-                st.rerun()
-            # 체포 실패권 / 재판권
-            if c4.button("재판권",key=f"r{lvl}"):
-                # 실패율 10% 감소
-                st.session_state.cur_action = f"재판권 Lv.{lvl}"
-                st.session_state.action_result = "사용됨"
-                st.success(f"재판권 사용: 실패율 10% 감소")
-                st.rerun()
+    st.markdown("<h2 class='glow'>Network Overview</h2>", unsafe_allow_html=True)
+    st.line_chart(pd.DataFrame(np.random.randn(30,1), columns=["System Activity"]))
 
-# ---------- 리더보드 ----------
+# ---------- CRIME CAPTURE ----------
 with tabs[1]:
-    st.markdown("<h3 style='color:#FFD700;'>상위 헌터 리더보드</h3>", unsafe_allow_html=True)
-    with get_db_conn() as conn:
-        rows = conn.execute("SELECT wallet, SUM(balance) as total_sol FROM users ORDER BY total_sol DESC LIMIT 10").fetchall()
-    for i,row in enumerate(rows):
-        st.markdown(f"{i+1}. {row[0]} - {row[1]:.3f} SOL")
+    st.markdown("<h3 class='glow'>Capture Criminals</h3>", unsafe_allow_html=True)
+    
+    lvl = st.selectbox("Select Criminal Level (1-20)", range(1,21))
+    use_retrial = st.checkbox("Use Retrial (increase success 10%)")
+    reinforcement = st.slider("Reinforcement (max 2 per level)", 0, 2, 0)
+    count = st.number_input("Number to Capture (1-10)", min_value=1, max_value=10, value=1)
+    price = 0.01 * count  # SOL 단위
+    st.markdown(f"Total Cost: {price:.3f} SOL")
+    
+    if st.button("Capture!"):
+        if st.session_state.balance < price:
+            st.error("Insufficient balance!")
+        else:
+            st.session_state.cur_bounty = price
+            success = capture_criminal(lvl, use_retrial, reinforcement)
+            if success:
+                st.session_state.criminals[lvl] += count
+                st.success(f"🎉 Successfully captured {count} criminal(s) at level {lvl}!")
+                send_telegram_alert(f"{st.session_state.wallet_address} captured {count} level {lvl} criminal(s)!")
+                process_transaction(-price, price)
+            else:
+                st.warning("❌ Capture failed!")
+                process_transaction(-price, 0)
 
-# ---------- 프리미엄 리포트 ----------
+# ---------- VAULT ----------
 with tabs[2]:
-    st.markdown("<h3 style='color:#FFD700;'>이번 주 악질 범죄자 리포트 (프리미엄)</h3>", unsafe_allow_html=True)
-    with get_db_conn() as conn:
-        rows = conn.execute("SELECT lvl, SUM(count) as cnt FROM criminals GROUP BY lvl ORDER BY lvl DESC").fetchall()
-    st.table(pd.DataFrame(rows, columns=["Lv","Count"]))
+    st.markdown("<h3 class='glow'>Vault Storage</h3>", unsafe_allow_html=True)
+    for lvl, cnt in st.session_state.criminals.items():
+        if cnt > 0:
+            c1,c2,c3 = st.columns(3)
+            st.markdown(f"<div class='criminal'>Level {lvl} Criminal x{cnt}</div>", unsafe_allow_html=True)
+            if c1.button("Send to Vault", key=f"v{lvl}"):
+                st.session_state.vault[lvl] += cnt
+                st.session_state.criminals[lvl] = 0
+                process_transaction(0,0)
+                st.rerun()
 
-# ===============================
-# 구독 / 라이선스 버튼 예시
-# ===============================
-st.markdown("<h4 style='color:#FFD700;'>라이선스 / 티어</h4>", unsafe_allow_html=True)
-col1,col2 = st.columns(2)
-with col1:
-    if st.button("BASIC 0.01 SOL - 감시만"):
-        grant_license(st.session_state.wallet_address,"BASIC",1)
-        st.success("BASIC 티어 활성화 완료")
-with col2:
-    if st.button("PRO 0.1 SOL - 원천 차단"):
-        grant_license(st.session_state.wallet_address,"PRO",1)
-        st.success("PRO 티어 활성화 완료")
+# ---------- LEADERBOARD ----------
+with tabs[3]:
+    st.markdown("<h3 class='glow'>Top Hunters</h3>", unsafe_allow_html=True)
+    with get_db_conn() as conn:
+        rows = conn.execute("""
+            SELECT wallet, IFNULL(SUM(balance),0.0) as total_sol
+            FROM users
+            GROUP BY wallet
+            ORDER BY total_sol DESC
+            LIMIT 10
+        """).fetchall()
+    for i,row in enumerate(rows):
+        val = row[1] if row[1] is not None else 0.0
+        st.markdown(f"{i+1}. {row[0]} - {val:.3f} SOL")
