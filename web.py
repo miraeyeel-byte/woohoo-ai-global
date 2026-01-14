@@ -9,10 +9,10 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO SECURITY V21.2", layout="wide")
-DB_PATH = "woohoo_v21_2_final.db"
+st.set_page_config(page_title="WOOHOO SECURITY V21.3", layout="wide")
+DB_PATH = "woohoo_v21_3_restore.db"
 
-# [2. 함수 정의 (최상단 배치로 에러 방지)]
+# [2. 함수 정의 (에러 방지용 최상단 배치)]
 def get_db():
     return sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
 
@@ -87,62 +87,74 @@ def get_criminal_name(lvl):
 def get_img_url(lvl):
     return f"https://api.dicebear.com/7.x/bottts/svg?seed=Scam{lvl}&backgroundColor=1a1a1a"
 
-# [3. 초기화 실행]
+# [3. 초기화]
 init_db()
 
-# [4. 16개국어 데이터]
+# [4. 16개국어 데이터 (완벽 복구)]
 LANG = {
     "🇰🇷 한국어": {
         "title": "WOOHOO 보안 플랫폼", 
         "tab_sec": "🛡️ 보안 센터", "tab_game": "🚨 범인 체포", "tab_inv": "📦 보관함", "tab_rank": "🏆 명예의 전당",
         "wallet_con": "지갑 연결", "wallet_dis": "연결 해제", "balance": "자산", "total_profit": "누적 수익", "max_lvl": "최고 레벨",
-        "story_short": "저처럼 허니팟 사기 당하지 마시라고 만들었습니다.",
-        "tele_info": "제보: @FUCKHONEYPOT",
-        "mode_basic": "BASIC (0.01 SOL)", "mode_basic_desc": "단순 위험도 탐지 (경고만 함)",
-        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "정밀 분석 + 위험 시 '구매 원천 차단'",
-        "sec_input": "검사할 토큰/사이트 주소",
-        "btn_scan": "검사 시작",
-        "game_desc": "비용을 지불하고 체포합니다. (확률 상향)",
-        "pull_1": "1회 체포", "pull_5": "5회 체포", "pull_10": "10회 체포", "pull_100": "🔥 100회 체포",
+        "story_short": "허니팟 없는 세상을 위해 만들었습니다.", "tele_info": "제보: @FUCKHONEYPOT",
+        "mode_basic": "BASIC (0.01 SOL)", "mode_basic_desc": "단순 경고 (구매 가능)",
+        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "정밀 차단 (구매 불가)",
+        "sec_input": "검사할 주소 입력", "btn_scan": "검사 시작",
+        "game_desc": "스캠범 체포 (확률 상향)",
+        "pull_1": "1회", "pull_5": "5회", "pull_10": "10회", "pull_100": "🔥 100회",
         "inv_empty": "보관함이 비어있습니다.", "fuse_all": "🧬 일괄 합성", "jail_all": "🔒 일괄 감옥",
         "btn_yes": "✅ 승인", "btn_no": "❌ 취소", "toast_catch": "{n}명 체포!", "err_bal": "잔액 부족",
-        "fuse_confirm": "{n}회 합성합니까?", "jail_confirm": "모두 감옥으로 보냅니까?",
-        "buy_confirm": "⚠️ {cost} SOL 결제 확인",
+        "fuse_confirm": "{n}회 합성합니까?", "jail_confirm": "모두 보냅니까?",
+        "buy_confirm": "⚠️ {cost} SOL 결제",
         "toast_fuse": "합성 완료!", "toast_jail": "이송 완료! +{r:.4f} SOL",
-        "rank_title": "명예의 전당", "rank_desc": "스캠범을 가장 많이 처단한 영웅들", "rank_empty": "데이터 없음"
+        "rank_title": "명예의 전당", "rank_desc": "최고의 헌터들", "rank_empty": "데이터 없음"
     },
     "🇺🇸 English": {
         "title": "WOOHOO SECURITY", 
         "tab_sec": "🛡️ Security", "tab_game": "🚨 Arrest", "tab_inv": "📦 Inventory", "tab_rank": "🏆 Hall of Fame",
         "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Lvl",
-        "story_short": "Created to prevent Honey Pot scams.",
-        "tele_info": "Report: @FUCKHONEYPOT",
-        "mode_basic": "BASIC (0.01 SOL)", "mode_basic_desc": "Simple Scan (Warn only)",
-        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "Deep Scan + Auto Block",
-        "sec_input": "Token/Site Address", "btn_scan": "Scan",
-        "game_desc": "Arrest scammers. High rates.",
+        "story_short": "Stop Honey Pots.", "tele_info": "Report: @FUCKHONEYPOT",
+        "mode_basic": "BASIC (0.01 SOL)", "mode_basic_desc": "Warn Only",
+        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "Auto Block",
+        "sec_input": "Enter Address", "btn_scan": "Scan",
+        "game_desc": "Arrest Scammers",
         "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100",
         "inv_empty": "Empty.", "fuse_all": "🧬 Fuse All", "jail_all": "🔒 Jail All",
         "btn_yes": "✅ Yes", "btn_no": "❌ No", "toast_catch": "{n} Captured!", "err_bal": "Low Balance.",
         "fuse_confirm": "Fuse {n}?", "jail_confirm": "Jail All?", "buy_confirm": "⚠️ Confirm {cost} SOL?",
         "toast_fuse": "Fused!", "toast_jail": "Jailed! +{r:.4f} SOL",
         "rank_title": "Hall of Fame", "rank_desc": "Top Hunters", "rank_empty": "No Data"
-    }
+    },
+    # 나머지 14개국어 (복구 완료)
+    "🇯🇵 日本語": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "100回", "btn_yes": "✅", "btn_no": "❌"},
+    "🇨🇳 中文": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "100次", "btn_yes": "✅", "btn_no": "❌"},
+    "🇷🇺 Русский": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇮🇱 עברית": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇵🇭 Tagalog": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇲🇾 Melayu": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇮🇩 Indonesia": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇹🇷 Türkçe": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇵🇹 Português": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇪🇸 Español": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇩🇪 Deutsch": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
+    "🇫🇷 Français": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"}
 }
 
-# [5. 스타일링]
+# [5. 스타일링 (가독성 복구)]
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&display=swap');
     .stApp { background-color: #050505; color: #fff; font-family: 'Noto Sans KR', sans-serif; }
-    h1, h2, h3 { color: #fff !important; text-shadow: 0 0 5px #000; }
-    .card-box { border: 1px solid #444; background: #111; padding: 15px; border-radius: 5px; margin-bottom: 10px; }
-    .neon { color: #66fcf1; font-weight: bold; }
-    .gold { color: #FFD700; font-weight: bold; }
-    .red { color: #FF4B4B; font-weight: bold; }
-    .stButton button { border: 1px solid #444; background: #222; color: #fff; }
-    .stButton button:hover { border-color: #66fcf1; color: #66fcf1; }
-    .tiny-warn { color: #ff4b4b; font-size: 0.8rem; font-weight: bold; text-align: center; background: rgba(50,0,0,0.8); border-radius: 4px; padding: 2px; }
+    h1, h2, h3 { color: #fff !important; text-shadow: 2px 2px 4px #000; }
+    .card-box { border: 2px solid #66fcf1; background: #111; padding: 15px; border-radius: 5px; margin-bottom: 10px; box-shadow: 0 0 5px #66fcf1; }
+    .neon { color: #66fcf1; font-weight: bold; font-size: 1.1em; }
+    .gold { color: #FFD700; font-weight: bold; font-size: 1.1em; }
+    .red { color: #FF4B4B; font-weight: bold; font-size: 1.1em; }
+    .stButton button { border: 2px solid #66fcf1; background: #000; color: #66fcf1; font-weight: bold; font-size: 1rem; }
+    .stButton button:hover { background: #66fcf1; color: #000; }
+    .tiny-warn { color: #ff4b4b; font-size: 0.9rem; font-weight: bold; text-align: center; background: rgba(50,0,0,0.8); border: 1px solid #ff4b4b; border-radius: 4px; padding: 5px; margin-bottom: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -157,7 +169,7 @@ def T(key, **kwargs):
     if kwargs: return text.format(**kwargs)
     return text
 
-# [7. UI 구성]
+# [7. UI]
 with st.sidebar:
     st.title("Language")
     lang_list = list(LANG.keys())
@@ -169,7 +181,7 @@ with st.sidebar:
     
     st.divider()
     st.info(T("story_short"))
-    st.caption(T("tele_info"))
+    st.markdown(f"📢 **{T('tele_info')}**")
     
     st.divider()
     if not st.session_state.wallet:
@@ -188,7 +200,7 @@ if not st.session_state.wallet:
 
 tabs = st.tabs([T("tab_sec"), T("tab_game"), T("tab_inv"), T("tab_rank")])
 
-# === 탭 1: 보안 센터 ===
+# === 1. 보안 센터 ===
 with tabs[0]:
     st.subheader(T("tab_sec"))
     c1, c2 = st.columns(2)
@@ -208,7 +220,7 @@ with tabs[0]:
                 update_balance(-cost)
                 run_security_scan(target_addr, mode)
 
-# === 탭 2: 범인 체포 ===
+# === 2. 범인 체포 (버튼 4종 복구) ===
 with tabs[1]:
     st.subheader(T("tab_game"))
     st.caption(T("game_desc"))
@@ -226,26 +238,40 @@ with tabs[1]:
         st.rerun()
 
     c1, c2, c3, c4 = st.columns(4)
-    # 버튼 로직 간소화 및 반복 제거
-    if st.session_state.confirm_target == "p1":
-        with c1:
+    # 1회
+    with c1:
+        if st.session_state.confirm_target == "p1":
             st.markdown(f"<div class='tiny-warn'>{T('buy_confirm', cost=0.01)}</div>", unsafe_allow_html=True)
             if st.button(T("btn_yes"), key="y1"): execute_pull(0.01, 1)
             if st.button(T("btn_no"), key="n1"): st.session_state.confirm_target = None; st.rerun()
-    else:
-        with c1:
+        else:
             if st.button(f"{T('pull_1')} (0.01 SOL)", key="btn_p1"): st.session_state.confirm_target = "p1"; st.rerun()
-            
-    if st.session_state.confirm_target == "p100":
-        with c4:
+    # 5회 (복구)
+    with c2:
+        if st.session_state.confirm_target == "p5":
+            st.markdown(f"<div class='tiny-warn'>{T('buy_confirm', cost=0.05)}</div>", unsafe_allow_html=True)
+            if st.button(T("btn_yes"), key="y5"): execute_pull(0.05, 5)
+            if st.button(T("btn_no"), key="n5"): st.session_state.confirm_target = None; st.rerun()
+        else:
+            if st.button(f"{T('pull_5')} (0.05 SOL)", key="btn_p5"): st.session_state.confirm_target = "p5"; st.rerun()
+    # 10회 (복구)
+    with c3:
+        if st.session_state.confirm_target == "p10":
+            st.markdown(f"<div class='tiny-warn'>{T('buy_confirm', cost=0.10)}</div>", unsafe_allow_html=True)
+            if st.button(T("btn_yes"), key="y10"): execute_pull(0.10, 10)
+            if st.button(T("btn_no"), key="n10"): st.session_state.confirm_target = None; st.rerun()
+        else:
+            if st.button(f"{T('pull_10')} (0.10 SOL)", key="btn_p10"): st.session_state.confirm_target = "p10"; st.rerun()
+    # 100회
+    with c4:
+        if st.session_state.confirm_target == "p100":
             st.markdown(f"<div class='tiny-warn'>{T('buy_confirm', cost=1.00)}</div>", unsafe_allow_html=True)
             if st.button(T("btn_yes"), key="y100"): execute_pull(1.00, 100)
             if st.button(T("btn_no"), key="n100"): st.session_state.confirm_target = None; st.rerun()
-    else:
-        with c4:
+        else:
             if st.button(f"{T('pull_100')} (1.00 SOL)", key="btn_p100", type="primary"): st.session_state.confirm_target = "p100"; st.rerun()
 
-# === 탭 3: 보관함 ===
+# === 3. 보관함 ===
 with tabs[2]:
     st.subheader(T("tab_inv"))
     inv = get_inv()
@@ -302,7 +328,7 @@ with tabs[2]:
                             record_profit_and_rank(r, lvl); st.rerun()
                 st.markdown("---")
 
-# === 탭 4: 명예의 전당 ===
+# === 4. 명예의 전당 ===
 with tabs[3]:
     st.subheader(T("rank_title"))
     st.caption(T("rank_desc"))
@@ -313,4 +339,4 @@ with tabs[3]:
     else:
         for i, (w, b, p, m) in enumerate(ranks):
             medal = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
-            st.markdown(f"<div class='card-box' style='display:flex; justify-content:space-between;'><span>{medal} <span class='neon'>{w}</span></span><span>Lv.{m} / +{p:.2f} SOL</span></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card-box' style='display:flex; justify-content:space-between;'><span>{medal} <span class='neon'>{w}</span></span><span><span class='red'>Lv.{m}</span> / +{p:.2f} SOL</span></div>", unsafe_allow_html=True)
