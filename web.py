@@ -1,216 +1,244 @@
 # ===============================
-# FuckHoneypot V17.3 – Full Integrated
+# V17.10 WOOHOO / FuckHoneypot Security Dashboard
 # ===============================
 
-import streamlit as st
-import random
-import sqlite3
-import time
-import requests
+# ===============================
+# IMPORTS
+# ===============================
 import os
+import streamlit as st
+import pandas as pd
+import numpy as np
+import random
+import time
+import sqlite3
 import html
+import threading
+import requests
+import ipaddress
+import datetime
 
 # ===============================
-# CONFIG & CONSTANTS
+# DB & PERSISTENT STORAGE 설정
 # ===============================
-DB_PATH = os.getenv("DB_PATH", "/app/data/woohoo_master_v17.db")  # 영구 DB 경로
-TELEGRAM_TOKEN = "YOUR_BOT_TOKEN"  # 텔레그램 봇 토큰
-TELEGRAM_CHAT_ID = "@FuckHoneypot" # 알림 받을 채널/아이디
-MAX_CRIMINAL_LEVEL = 20
+DB_PATH = os.getenv("DB_PATH", "woohoo_master_v17.db")
+db_dir = os.path.dirname(DB_PATH)
+if db_dir and not os.path.exists(db_dir):
+    os.makedirs(db_dir, exist_ok=True)
 
-# ===============================
-# DATABASE INITIALIZATION
-# ===============================
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-c = conn.cursor()
+db_lock = threading.Lock()
 
-# 헌터 / 유저 테이블
-c.execute("""
-CREATE TABLE IF NOT EXISTS hunters (
-    wallet TEXT PRIMARY KEY,
-    level INTEGER DEFAULT 1,
-    exp INTEGER DEFAULT 0,
-    tier TEXT DEFAULT 'BASIC'
-)
-""")
+def get_db_conn():
+    return sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
 
-# 범죄자 체포 기록
-c.execute("""
-CREATE TABLE IF NOT EXISTS captures (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    wallet TEXT,
-    criminal_level INTEGER,
-    success INTEGER,
-    reinforce INTEGER,
-    trial_pass INTEGER,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-""")
+def init_db():
+    with get_db_conn() as conn:
+        c = conn.cursor()
+        # 사용자, 인벤토리, 체포 히어로(범죄자), 감옥, 시스템 상태, 라이선스, 채팅, 프리미엄 리포트
+        c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, nodes INTEGER)")
+        c.execute("CREATE TABLE IF NOT EXISTS criminals (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet,lvl))")
+        c.execute("CREATE TABLE IF NOT EXISTS jail (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet,lvl))")
+        c.execute("CREATE TABLE IF NOT EXISTS system_state (id INTEGER PRIMARY KEY CHECK(id=1), treasury REAL)")
+        c.execute("INSERT OR IGNORE INTO system_state VALUES (1,1000)")
+        c.execute("CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, wallet TEXT, message TEXT, time TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS licenses (wallet TEXT PRIMARY KEY, expiry_time TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS premium_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, wallet TEXT, report TEXT, time TEXT)")
+        conn.commit()
 
-conn.commit()
+init_db()
 
 # ===============================
-# TELEGRAM ALERT FUNCTION
+# SESSION INIT
+# ===============================
+def init_session():
+    defaults = {
+        "wallet_address": None,
+        "is_admin": False,
+        "balance": 0.1,  # SOL 기본
+        "owned_nodes": 0,
+        "criminals": {i:0 for i in range(1,21)},  # 레벨1~20
+        "jail": {i:0 for i in range(1,21)},
+        "op_lock": False
+    }
+    for k,v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+init_session()
+
+# ===============================
+# SECURITY / FIREWALL ENGINE
+# ===============================
+FIREWALL_THRESHOLD = 80  # 고위험 접속 차단 임계치
+
+def get_visitor_ip():
+    try:
+        ip = st.context.headers.get("X-Forwarded-For", "").split(",")[0]
+        if not ip: ip = st.context.headers.get("X-Real-IP", "127.0.0.1")
+        return ip
+    except:
+        return "127.0.0.1"
+
+def analyze_security_risk(ip, allowed_countries=["KR"]):
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback:
+            return "내부망", 0, "비정상적인 접근"
+    except:
+        return "입력 오류", 0, "IP 형식 오류"
+
+    res_data = None
+    for _ in range(2):
+        try:
+            url = f"https://ip-api.com/json/{ip}?fields=status,countryCode,proxy,hosting"
+            r = requests.get(url, timeout=3)
+            if r.status_code==200: res_data=r.json(); break
+        except: continue
+
+    if not res_data or res_data.get('status')!="success":
+        return "분석 실패", 0, "데이터 확인 불가"
+
+    risk = 0; reasons=[]
+    if res_data.get('proxy'): risk+=40; reasons.append("VPN/Proxy")
+    if res_data.get('hosting'): risk+=30; reasons.append("Hosting/Server")
+    if res_data.get('countryCode') not in allowed_countries: risk+=20; reasons.append("Foreign IP")
+    risk = min(risk,100)
+    return ("고위험" if risk>=FIREWALL_THRESHOLD else "일반"), risk, ", ".join(reasons)
+
+def check_firewall():
+    if st.session_state.get("is_admin"): return True,0,""
+    ip = get_visitor_ip()
+    status,risk,reason = analyze_security_risk(ip)
+    if risk>=FIREWALL_THRESHOLD:
+        st.error(f"⚠️ 고위험 접속 감지 (Risk: {risk})")
+        st.info(f"사유: {reason}")
+        st.stop()
+    return True,risk,reason
+
+can_proceed,current_risk,risk_desc = check_firewall()
+
+# ===============================
+# LICENSE ENGINE
+# ===============================
+def check_license(wallet):
+    if not wallet: return False
+    with get_db_conn() as conn:
+        row = conn.execute("SELECT expiry_time FROM licenses WHERE wallet=?", (wallet,)).fetchone()
+    if not row: return False
+    expiry=datetime.datetime.strptime(row[0],"%Y-%m-%d %H:%M:%S")
+    return expiry>datetime.datetime.now()
+
+def grant_license(wallet,hours):
+    expiry=datetime.datetime.now()+datetime.timedelta(hours=hours)
+    with db_lock:
+        with get_db_conn() as conn:
+            conn.execute("INSERT OR REPLACE INTO licenses VALUES (?,?)",
+                         (wallet,expiry.strftime("%Y-%m-%d %H:%M:%S")))
+            conn.commit()
+
+# ===============================
+# TELEGRAM ALERT
 # ===============================
 def send_telegram_alert(message):
+    token="YOUR_BOT_TOKEN"
+    chat_id="@FuckHoneypot"
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.get(url, params={
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": f"🚨 [FuckHoneypot]\n{message}"
-        }, timeout=3)
-    except:
-        pass
+        url=f"https://api.telegram.org/bot{token}/sendMessage"
+        params={"chat_id":chat_id,"text":f"🚨 [FuckHoneypot Alert]\n{message}"}
+        requests.get(url,params=params,timeout=3)
+    except: pass
 
 # ===============================
-# TOKEN SCANNER (SIMULATED)
+# CRIMINAL / CAPTURE SYSTEM
 # ===============================
-def scan_token(token_address):
+def process_capture(lvl, count, use_upgrade=False, use_retry=False):
     """
-    토큰 위험 점수 계산 예시
-    실제 환경에서는 Solana RPC 또는 Web3 라이브러리 연동 필요
+    lvl: 범죄자 레벨 1~20
+    count: 몇 명 체포
+    use_upgrade: 강화권 사용
+    use_retry: 재판권 사용
     """
-    risk_score = random.randint(30, 95)
-    issues = []
-    if risk_score > 70:
-        issues.append("Honeypot Pattern Detected")
-    return risk_score, issues
-
-# ===============================
-# SECURITY TIER LOGIC
-# ===============================
-def process_security_action(token_address, tier):
-    """
-    티어별 보안 처리:
-    - BASIC: 감시만
-    - PRO: 위험 토큰 원천 차단
-    """
-    risk, _ = scan_token(token_address)
-    if tier == "BASIC (0.01 SOL)" and risk >= 70:
-        st.error(f"🚨 High Risk Detected ({risk}) – Monitoring Only")
-        return False
-    if tier == "PRO (0.1 SOL)" and risk >= 70:
-        st.error("🚫 Transaction Blocked by Security Engine")
-        st.stop()
-    return True
-
-# ===============================
-# CRIMINAL CAPTURE LOGIC
-# ===============================
-def attempt_capture(level, reinforce, trial_pass):
-    """
-    범죄자 체포 성공 확률 계산
-    - level: 범죄자 레벨 1~20
-    - reinforce: 강화권 (1회 10% 성공률 증가)
-    - trial_pass: 재판권 사용 (10% 성공률 증가)
-    """
-    base_fail = 0.2 + level * 0.05
-    base_fail -= reinforce * 0.1
-    if trial_pass:
-        base_fail -= 0.1
-    fail_rate = min(max(base_fail, 0.05), 0.9)
-    success = random.random() > fail_rate
-    return success, fail_rate
+    base_fail = 10+(lvl-1)*5  # 레벨별 기본 실패율 1레벨10%, 2레벨15%, 3레벨20%, ...
+    if use_upgrade: base_fail -= 10
+    if use_retry: base_fail -= 10
+    base_fail = max(5,min(base_fail,90))
+    
+    success = 0
+    for _ in range(count):
+        if random.randint(1,100)>base_fail:
+            success+=1
+            # Jail 이동
+            st.session_state.jail[lvl]+=1
+            st.session_state.criminals[lvl]-=1
+            # 보상: 레벨 * 0.01 SOL
+            st.session_state.balance+=0.01*lvl
+            send_telegram_alert(f"{st.session_state.wallet_address}님이 레벨{lvl} 범죄자 체포 성공! 보상: {0.01*lvl:.3f} SOL")
+    return success, count-success, base_fail
 
 # ===============================
 # STREAMLIT UI
 # ===============================
-st.set_page_config(page_title="FuckHoneypot V17.3", layout="wide")
+st.set_page_config(page_title="🚨 FuckHoneypot V17.10", layout="wide")
 
-# 머리말
 st.markdown("""
-# 🛡️ FuckHoneypot Security Dashboard
-I built this after getting rugged on pump.fun.  
-No one should be exploited like I was — protect your wallet, become a bounty hunter!  
-**Subscribe and hunt scammers safely.**
-""")
+<h1 style='color:red;text-align:center;'>🚨 FuckHoneypot Security Dashboard</h1>
+<p style='text-align:center;color:#fff;'>Developed to fight scammers after being burned by pump/fun coins. Stay safe, protect your wallet!</p>
+""",unsafe_allow_html=True)
 
-# 지갑 입력
-wallet = st.text_input("Enter Wallet Address")
+# Sidebar: 로그인
+with st.sidebar:
+    if not st.session_state.wallet_address:
+        if st.button("Connect Wallet"):
+            st.session_state.wallet_address="USER_01"
+            st.session_state.balance=0.1
+            st.rerun()
+    else:
+        st.markdown(f"<div style='color:gold'>Wallet: {st.session_state.wallet_address}<br>Balance: {st.session_state.balance:.3f} SOL</div>",unsafe_allow_html=True)
+        if st.button("Logout"):
+            for k in st.session_state.keys(): st.session_state[k]=None
+            st.rerun()
 
-if wallet:
-    c.execute("INSERT OR IGNORE INTO hunters(wallet) VALUES(?)", (wallet,))
-    conn.commit()
+# Tabs
+tabs=st.tabs(["⚡ Overview","🕵️ Criminal Capture","📊 Premium Reports"])
 
-    # 티어 선택
-    tier = st.selectbox("Security Tier", ["BASIC (0.01 SOL)", "PRO (0.1 SOL)"])
+# ---------- Overview ----------
+with tabs[0]:
+    st.write("Welcome to FuckHoneypot! Protect your wallet, track suspicious tokens, and become a bounty hunter!")
+    st.metric("Current Risk Level", current_risk)
 
-    # --------------------------
-    # TABS
-    # --------------------------
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🛡️ Scanner", "🎯 Criminal Hunt", "🏆 Rank", "📊 Premium Report", "💬 Brag Board"
-    ])
+# ---------- Criminal Capture ----------
+with tabs[1]:
+    st.markdown("## 🕵️ Capture Virtual Criminals")
+    lvl = st.selectbox("범죄자 레벨 선택", list(range(1,21)))
+    count = st.number_input("몇 명 체포?", min_value=1, max_value=20, value=1)
+    upgrade = st.checkbox("Use Upgrade (강화권, 실패율 감소)")
+    retry = st.checkbox("Use Retry (재판권, 실패율 추가 감소)")
+    
+    if st.button("Capture"):
+        success, fail, fail_rate = process_capture(lvl,count,upgrade,retry)
+        st.success(f"체포 성공: {success} / 실패: {fail} (Fail Rate: {fail_rate}%)")
+        # 화려한 UI 연출
+        st.balloons()
+        st.toast(f"👏 {success} 범죄자 체포 성공! 보상 지급 완료!")
 
-    # ---------------- SCANNER TAB ----------------
-    with tab1:
-        token = st.text_input("Token Address")
-        if st.button("Scan Token"):
-            process_security_action(token, tier)
-
-    # ---------------- HUNT TAB ----------------
-    with tab2:
-        st.markdown("### Criminal Capture Interface")
-        level = st.slider("Criminal Level", 1, MAX_CRIMINAL_LEVEL)
-        reinforce = st.selectbox("Reinforcement (+10% each, max 2)", [0, 1, 2])
-        trial_pass = st.checkbox("Trial Pass (-10%)")
-        batch_10 = st.checkbox("Capture 10 at once (0.1 SOL)")
-
-        if st.button("🚓 Attempt Capture"):
-            total_captures = 10 if batch_10 else 1
-            success_count = 0
-
-            for _ in range(total_captures):
-                success, fail_rate = attempt_capture(level, reinforce, trial_pass)
-                c.execute("""
-                    INSERT INTO captures(wallet, criminal_level, success, reinforce, trial_pass)
-                    VALUES (?,?,?,?,?)
-                """, (wallet, level, int(success), reinforce, int(trial_pass)))
-                conn.commit()
-
-                if success:
-                    success_count += 1
-                    st.balloons()
-                    st.success(f"🎉 Criminal Lv.{level} captured!")
-                    send_telegram_alert(f"{wallet[:6]} captured Lv.{level} criminal!")
-                else:
-                    st.error(f"❌ Capture Failed (Fail Rate {int(fail_rate*100)}%)")
-
-            st.info(f"Total Success: {success_count}/{total_captures}")
-
-    # ---------------- RANK TAB ----------------
-    with tab3:
-        c.execute("SELECT COUNT(*) FROM captures WHERE wallet=? AND success=1", (wallet,))
-        wins = c.fetchone()[0]
-        st.metric("Total Captures", wins)
-        st.write("Your Hunter Level:", 1 + wins // 10)
-
-    # ---------------- PREMIUM REPORT ----------------
-    with tab4:
-        if wins >= 10:
-            st.markdown("### 🔥 Weekly Rugger Intelligence")
-            st.write("• Liquidity Pull Pattern")
-            st.write("• Bot Wallet Clusters")
-            st.write("• High-Risk Smart Contracts")
-        else:
-            st.info("🔒 Available for Rank 10+ Hunters")
-
-    # ---------------- BRAG BOARD ----------------
-    with tab5:
-        st.markdown("### 🏆 Brag Board")
-        c.execute("SELECT wallet, criminal_level FROM captures WHERE success=1 ORDER BY timestamp DESC LIMIT 10")
-        rows = c.fetchall()
-        for r in rows:
-            st.write(f"💥 {r[0][:6]} captured a Lv.{r[1]} criminal!")
-
-    # ---------------- SUBSCRIBE INFO ----------------
-    st.markdown("""
-    ---
-    ### 🔐 Subscription
-    Become a certified bounty hunter for **0.01 SOL/hour**.  
-    Protect your wallet while earning brag rights and premium intelligence.  
-    """)
+# ---------- Premium Reports ----------
+with tabs[2]:
+    st.markdown("## 📊 Premium Rugger Reports")
+    with get_db_conn() as conn:
+        rows=conn.execute("SELECT wallet,report,time FROM premium_reports ORDER BY id DESC LIMIT 10").fetchall()
+    for w,r,t in rows:
+        st.markdown(f"{t} | {w[:6]}: {r}")
 
 # ===============================
-# END OF CODE
+# LICENSE / SUBSCRIPTION UI
 # ===============================
+with st.sidebar:
+    st.markdown("## 🏷 License Options")
+    if st.button("Activate 0.01 SOL Basic License (Observation)"):
+        grant_license(st.session_state.wallet_address,1)
+        st.success("✅ Basic license granted")
+        st.rerun()
+    if st.button("Activate 0.1 SOL Pro License (Full Block)"):
+        grant_license(st.session_state.wallet_address,24)
+        st.success("✅ Pro license granted")
+        st.rerun()
