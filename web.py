@@ -1,4 +1,4 @@
-ㅡimport streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import random
@@ -10,7 +10,9 @@ import threading
 
 # [1. 환경 설정]
 st.set_page_config(page_title="WOOHOO RPG COMMANDER", layout="wide")
-DB_PATH = "woohoo_v17_rpg.db"
+
+# [에러 수정 1 & 4] DB 경로를 가장 안전한 현재 위치로 설정
+DB_PATH = "woohoo_v17_final.db"
 
 # [2. DB 초기화]
 def get_db():
@@ -21,18 +23,18 @@ def init_db():
         c = conn.cursor()
         c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL)")
         c.execute("CREATE TABLE IF NOT EXISTS inventory (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet, lvl))")
-        c.execute("CREATE TABLE IF NOT EXISTS reports (id INTEGER PRIMARY KEY, wallet TEXT, content TEXT, time TEXT)")
-        # 테스트용 초기 자금
+        c.execute("CREATE TABLE IF NOT EXISTS reports (id INTEGER PRIMARY KEY AUTOINCREMENT, wallet TEXT, content TEXT, time TEXT)")
+        # 초기 운영자 계정 생성 (테스트용 자금 지급)
         c.execute("INSERT OR IGNORE INTO users VALUES ('Operator', 10.0)")
         conn.commit()
 init_db()
 
-# [3. 스타일링 (RPG 다크 테마 & 카드)]
+# [3. 스타일링 (RPG 다크 테마 & 네온)]
 st.markdown("""
 <style>
     .stApp { background-color: #0b0c10; color: #c5c6c7; }
     
-    /* 유닛 카드 */
+    /* 유닛 카드 스타일 */
     .unit-card {
         border: 2px solid #45a29e; border-radius: 10px; padding: 10px;
         background: #1f2833; text-align: center; cursor: pointer;
@@ -52,16 +54,11 @@ st.markdown("""
         padding: 20px; border-radius: 15px 15px 0 0;
         margin-top: 20px; box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
     }
-    
-    /* 텍스트 스타일 */
-    .level-badge {
-        background: #45a29e; color: #000; padding: 2px 8px; border-radius: 4px; font-weight: bold;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # [4. 세션 상태]
-if 'wallet' not in st.session_state: st.session_state.wallet = "Operator" # 테스트용 자동 로그인
+if 'wallet' not in st.session_state: st.session_state.wallet = "Operator" 
 if 'selected_lvl' not in st.session_state: st.session_state.selected_lvl = None
 if 'confirm_buy' not in st.session_state: st.session_state.confirm_buy = False
 
@@ -88,6 +85,15 @@ def update_inventory(lvl, delta):
         conn.execute("INSERT OR REPLACE INTO inventory VALUES (?, ?, ?)", (st.session_state.wallet, lvl, new_cnt))
         conn.commit()
 
+# [에러 수정 2] IP API URL 오타 수정 (중괄호 제거)
+def check_ip_security():
+    try:
+        ip = "127.0.0.1"
+        url = f"http://ip-api.com/json/{ip}?fields=status,countryCode,proxy,hosting"
+        return requests.get(url, timeout=1).json()
+    except:
+        return {}
+
 # [6. 메인 UI]
 st.title("⚔️ WOOHOO RPG COMMANDER")
 
@@ -98,155 +104,144 @@ c1.metric("OPERATOR WALLET", st.session_state.wallet)
 c2.metric("ASSETS (SOL)", f"{bal:.4f}")
 c3.metric("DEFCON", "LEVEL 1")
 
-# 탭 구성: 게임(RPG) / 랭킹 / 제보
-tabs = st.tabs(["🎮 COMMAND CENTER", "🏆 HALL OF FAME", "🕵️ INTELLIGENCE (제보)"])
+# 탭 구성
+tabs = st.tabs(["🎮 COMMAND CENTER", "🏆 HALL OF FAME", "🕵️ INTELLIGENCE"])
 
 # --- TAB 1: COMMAND CENTER (RPG 메인) ---
 with tabs[0]:
-    # 1. 유닛(범죄자) 인벤토리 그리드
     st.subheader("🛑 UNIT CONTROLLER")
     inv = get_inventory()
     
-    # 20레벨까지 슬롯 생성
+    # 유닛 그리드
     cols = st.columns(6)
-    for i in range(1, 21): # 1~20레벨
+    for i in range(1, 19): # 1~18레벨
         count = inv.get(i, 0)
         with cols[(i-1)%6]:
-            # 카드 스타일링 (선택 시 하이라이트)
             border_cls = "unit-selected" if st.session_state.selected_lvl == i else "unit-card"
-            
-            # 카드 내용
             img_icon = ["👤", "👺", "🤡", "💀", "👾", "🐉", "👹", "👽"][min(i-1, 7)]
+            
             st.markdown(f"""
             <div class='{border_cls}'>
-                <div style='font-size:40px;'>{img_icon}</div>
+                <div style='font-size:30px;'>{img_icon}</div>
                 <div><b>Lv.{i} Criminal</b></div>
                 <div style='color:#66fcf1'>x {count}</div>
             </div>
             """, unsafe_allow_html=True)
             
-            # [선택] 버튼 (클릭 시 하단 콘솔 활성화)
             if st.button(f"SELECT Lv.{i}", key=f"sel_{i}", use_container_width=True):
                 st.session_state.selected_lvl = i
-                st.session_state.confirm_buy = False # 선택 변경 시 구매창 닫기
+                st.session_state.confirm_buy = False
                 st.rerun()
 
-    # 2. 하단 커맨드 콘솔 (스타크래프트 느낌)
+    # 하단 커맨드 콘솔
     st.markdown("<div class='command-console'>", unsafe_allow_html=True)
     
     if st.session_state.selected_lvl:
         slvl = st.session_state.selected_lvl
         scount = inv.get(slvl, 0)
         
-        c_left, c_mid, c_right = st.columns([1, 2, 1])
+        col_l, col_m, col_r = st.columns([1, 2, 1])
         
-        with c_left:
+        with col_l:
             st.markdown(f"### 🎯 TARGET: Lv.{slvl}")
             st.write(f"보유 수량: **{scount}** 명")
             
-        with c_mid:
-            # [기능 A] 레벨 1 구매 (소환)
+        with col_m:
+            # [기능 A] 레벨 1 구매
             if slvl == 1:
-                st.info("💡 Lv.1은 [0.01 SOL]로 즉시 체포(구매) 가능합니다.")
+                st.info("💡 Lv.1은 [0.01 SOL]로 즉시 구매(체포) 가능")
                 if not st.session_state.confirm_buy:
-                    if st.button("🚨 체포 작전 개시 (구매)", key="buy_btn"):
+                    if st.button("🚨 체포 작전 개시 (구매)", key="buy_init"):
                         st.session_state.confirm_buy = True
                         st.rerun()
                 else:
-                    st.warning("⚠️ 작전 승인: 0.01 SOL이 소모됩니다. 진행하시겠습니까?")
+                    st.warning("⚠️ 0.01 SOL이 소모됩니다. 승인하시겠습니까?")
                     b1, b2 = st.columns(2)
-                    if b1.button("✅ 승인 (YES)"):
+                    if b1.button("✅ 승인"):
                         if bal >= 0.01:
                             update_balance(-0.01)
                             update_inventory(1, 1)
                             st.session_state.confirm_buy = False
-                            st.toast("체포 성공! 인벤토리에 추가되었습니다.", icon="🚔")
+                            st.toast("체포 성공!", icon="🚔")
                             st.rerun()
-                        else:
-                            st.error("자금 부족!")
-                    if b2.button("❌ 취소 (NO)"):
+                        else: st.error("자금 부족!")
+                    if b2.button("❌ 취소"):
                         st.session_state.confirm_buy = False
                         st.rerun()
             else:
-                st.info(f"🔒 Lv.{slvl}은 구매할 수 없습니다. 오직 [합성]으로만 획득 가능합니다.")
+                st.info("🔒 상위 레벨은 구매 불가. 오직 [합성]으로만 획득 가능.")
 
-            # [기능 B] 합성 (Fusion) - 비콘 전송 느낌
+            # [기능 B] 합성 (2 -> 1)
             st.markdown("---")
             if scount >= 2:
-                st.write(f"🧬 **Lv.{slvl} (2명)** ➡️ **Lv.{slvl+1} (1명)** 합성 가능")
-                if st.button(f"⚡ 합성 프로토콜 실행 (Lv.{slvl} -> Lv.{slvl+1})"):
-                    # 확률 설정 (예: 90% 성공)
-                    if random.random() < 0.9:
+                st.write(f"🧬 **Lv.{slvl} (2명)** ➡️ **Lv.{slvl+1} (1명)** 합성")
+                if st.button(f"⚡ 합성 실행 (Fusion)"):
+                    if random.random() < 0.9: # 90% 성공률
                         update_inventory(slvl, -2)
                         update_inventory(slvl+1, 1)
                         st.balloons()
-                        st.success(f"변이 성공! 더 강력한 Lv.{slvl+1} 범죄자가 되었습니다.")
+                        st.success("변이 성공! 레벨 업!")
                         time.sleep(1)
                         st.rerun()
                     else:
-                        update_inventory(slvl, -1) # 실패 시 1마리 소멸 페널티
-                        st.error("합성 실패! 실험체 1명이 소멸했습니다.")
+                        update_inventory(slvl, -1)
+                        st.error("합성 실패! 1명 소멸.")
                         st.rerun()
             else:
-                st.caption(f"⚠️ 합성을 위해서는 Lv.{slvl} 범죄자 2명이 필요합니다.")
+                st.caption(f"⚠️ 합성을 위해서는 2명이 필요합니다.")
 
-        with c_right:
-            # [기능 C] 감옥 보내기 (판매)
-            sell_price = 0.008 * (2**(slvl-1)) # Lv1=0.008, Lv2=0.016...
+        with col_r:
+            # [기능 C] 판매 (감옥)
+            sell_price = 0.008 * (1.5**(slvl-1))
             st.write("⚖️ **처분 (감옥 이송)**")
             st.write(f"보상금: {sell_price:.4f} SOL")
-            
             if scount > 0:
-                if st.button("🔒 감옥으로 이송 (판매)"):
+                if st.button("🔒 이송 (판매)"):
                     update_inventory(slvl, -1)
                     update_balance(sell_price)
-                    st.toast(f"이송 완료. {sell_price:.4f} SOL 획득", icon="💰")
+                    st.toast("이송 완료.", icon="💰")
                     st.rerun()
-            else:
-                st.caption("이송할 대상이 없습니다.")
-
     else:
-        st.info("👆 상단 목록에서 유닛(범죄자)을 선택하여 명령을 내리십시오.")
-    
+        st.info("👆 상단 목록에서 유닛을 선택하세요.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- TAB 2: 명예의 전당 (복구됨) ---
+# --- TAB 2: 명예의 전당 (에러 수정됨) ---
 with tabs[1]:
     st.subheader("🏆 HALL OF FAME")
-    st.write("가장 높은 레벨의 범죄자를 보유한 전설적인 헌터들입니다.")
     
-    # 랭킹 더미 데이터 (실제 DB 연동 가능)
-    rank_data = [
-        {"Rank": 1, "Hunter": "Operator", "Top Criminal": "Lv.19 Lucifer", "Score": 9999},
-        {"Rank": 2, "Hunter": "SolanaKing", "Top Criminal": "Lv.15 Joker", "Score": 5000},
-        {"Rank": 3, "Hunter": "DegenHunter", "Top Criminal": "Lv.12 Thief", "Score": 1200},
-    ]
-    st.dataframe(pd.DataFrame(rank_data), use_container_width=True)
+    # [에러 수정 3] 데이터가 없을 때 TypeError 방지 (IFNULL 사용)
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT wallet, IFNULL(balance, 0.0) 
+            FROM users 
+            ORDER BY balance DESC 
+            LIMIT 5
+        """).fetchall()
+    
+    if rows:
+        for i, row in enumerate(rows):
+            val = row[1] if row[1] is not None else 0.0
+            st.write(f"**{i+1}위** : {row[0]} — {val:.4f} SOL")
+    else:
+        st.write("아직 데이터가 없습니다.")
 
-# --- TAB 3: 제보하기 (복구됨) ---
+# --- TAB 3: 제보하기 ---
 with tabs[2]:
     st.subheader("🕵️ INTELLIGENCE REPORT")
-    st.write("의심스러운 스캠 코인이나 사기꾼 지갑을 제보해주세요. 헌터들이 출동합니다.")
-    
     with st.form("report_form"):
-        r_wallet = st.text_input("사기꾼 지갑 주소 (Scammer Wallet)")
-        r_desc = st.text_area("제보 내용 (증거 자료 등)")
-        
-        if st.form_submit_button("📩 제보 전송"):
-            if r_wallet and r_desc:
+        target = st.text_input("사기꾼 지갑 주소")
+        note = st.text_area("제보 내용")
+        if st.form_submit_button("전송"):
+            if target:
                 with get_db() as conn:
-                    conn.execute("INSERT INTO reports (wallet, content, time) VALUES (?, ?, ?)", 
-                                 (r_wallet, r_desc, time.strftime('%Y-%m-%d %H:%M:%S')))
+                    conn.execute("INSERT INTO reports (wallet, content, time) VALUES (?, ?, datetime('now'))", (target, note))
                     conn.commit()
-                st.success("접수되었습니다. 보안 팀이 분석을 시작합니다.")
-            else:
-                st.error("내용을 입력해주세요.")
-    
-    # 최근 제보 목록
+                st.success("접수 완료.")
+            else: st.error("주소를 입력하세요.")
+            
     st.markdown("---")
-    st.markdown("##### 📢 최근 접수된 제보")
+    st.write("📢 **최근 제보 목록**")
     with get_db() as conn:
         logs = conn.execute("SELECT wallet, content, time FROM reports ORDER BY id DESC LIMIT 5").fetchall()
     for log in logs:
-        st.info(f"[{log[2]}] **Target:** {log[0]} | **Note:** {log[1]}")
-
+        st.info(f"[{log[2]}] {log[0]} - {log[1]}")
