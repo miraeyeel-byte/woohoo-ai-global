@@ -371,3 +371,4 @@ with tabs[3]:
         for i, (w, b, p, m) in enumerate(ranks):
             medal = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
             st.markdown(f"<div class='card-box' style='padding:15px; text-align:left; display:flex; justify-content:space-between;'><span style='font-size:1.2em'>{medal} <span class='neon'>{w}</span></span><span style='text-align:right'><span class='red'>Lv.{m}</span> <span class='gold'>+{p:.4f} SOL</span></span></div>", unsafe_allow_html=True)
+
