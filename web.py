@@ -9,9 +9,9 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO GLOBAL V20.6", layout="wide")
-# [중요] 초기 데이터를 넣기 위해 새 DB 사용
-DB_PATH = "woohoo_v20_6_fake.db"
+st.set_page_config(page_title="WOOHOO GLOBAL V20.7", layout="wide")
+# [중요] 에러 수정 및 초기 데이터(가짜 랭커) 로드를 위해 새 DB 사용
+DB_PATH = "woohoo_v20_7_fixed.db"
 
 # [2. 16개국어 데이터]
 LANG = {
@@ -32,16 +32,17 @@ LANG = {
     },
     "🇺🇸 English": {
         "title": "WOOHOO SECURITY", "tab_sec": "🛡️ Security", "tab_game": "🚨 Arrest", "tab_inv": "📦 Inventory", "tab_rank": "🏆 Hall of Fame",
-        "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Lvl",
+        "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Jailed",
         "sec_btn": "💰 Buy", "sec_warn": "Enter Address.", "sec_safe": "✅ Safe ({score})", "sec_danger": "🚨 Risk {score}!", "sec_block": "🚫 Blocked!",
         "game_desc": "Arrest criminals. High Rates! Max draw Lv.100.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100 (Whale)",
         "inv_empty": "Empty.", "fuse_all": "🧬 Fuse All", "jail_all": "🔒 Jail All",
         "btn_yes": "✅ Yes", "btn_no": "❌ No", "toast_catch": "{n} Captured!", "err_bal": "Low Balance.",
         "fuse_confirm": "Fuse {n} times?", "jail_confirm": "Jail all?", "buy_confirm": "⚠️ Confirm {cost} SOL?",
         "toast_fuse": "Fused!", "toast_jail": "Jailed! +{r:.4f} SOL",
-        "rank_title": "Hall of Fame", "rank_desc": "Realized profits only.", "rank_empty": "No data.",
+        "rank_title": "Hall of Fame", "rank_desc": "Shows highest level SOLD (Jailed).", "rank_empty": "No data.",
         "name_1": "Pickpocket", "name_10": "Thug", "name_50": "Boss", "name_100": "Overlord", "name_500": "Ruler", "name_1000": "GOD"
     },
+    # 나머지 언어 (기능 유지, 영어 폴백)
     "🇯🇵 日本語": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL 決済確認", "name_1000": "神", "btn_yes": "✅", "btn_no": "❌", "game_desc": "高確率ガチャ！", "max_lvl": "最高処刑"},
     "🇨🇳 中文": {"title": "WOOHOO", "buy_confirm": "⚠️ 确认支付 {cost} SOL？", "name_1000": "神", "btn_yes": "✅", "btn_no": "❌", "game_desc": "高爆率！", "max_lvl": "最高处决"},
     "🇷🇺 Русский": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "БОГ", "btn_yes": "✅", "btn_no": "❌"},
@@ -58,7 +59,7 @@ LANG = {
     "🇫🇷 Français": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIEU", "btn_yes": "✅", "btn_no": "❌"}
 }
 
-# [3. DB 초기화 (가짜 데이터 주입)]
+# [3. DB 초기화 (가짜 랭커 포함)]
 def get_db():
     return sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
 
@@ -71,8 +72,7 @@ def init_db():
         # 운영자 계정
         c.execute("INSERT OR IGNORE INTO users (wallet, balance, total_profit, max_lvl, max_sold_lvl) VALUES ('Operator_Admin', 1000.0, 0.0, 0, 0)")
         
-        # [핵심] 가짜 랭커 주입 (이미 있으면 무시됨)
-        # 구조: 지갑주소, 잔액(의미없음), 누적수익, 보유최고렙(의미없음), 판매최고렙
+        # [핵심] 가짜 랭커 주입
         fake_users = [
             ('Legend_Hunter', 50.0, 524.12, 0, 55),
             ('Solana_Whale', 12.0, 120.50, 0, 30),
@@ -80,10 +80,8 @@ def init_db():
             ('Crypto_Ninja', 2.0, 12.80, 0, 15),
             ('Newbie_Luck', 0.5, 5.10, 0, 10)
         ]
-        
         for user in fake_users:
             c.execute("INSERT OR IGNORE INTO users (wallet, balance, total_profit, max_lvl, max_sold_lvl) VALUES (?, ?, ?, ?, ?)", user)
-            
         conn.commit()
 init_db()
 
@@ -111,7 +109,7 @@ def get_criminal_name(lvl):
 def get_img_url(lvl):
     return f"https://api.dicebear.com/7.x/bottts/svg?seed=WoohooCrime{lvl}&backgroundColor=1a1a1a"
 
-# [5. 게임 로직 (V20.3 희망 밸런스 유지)]
+# [5. 게임 로직]
 def process_security_action(token_address, user_tier):
     risk_score = random.randint(0, 100)
     if user_tier.startswith("BASIC"):
@@ -154,11 +152,13 @@ def get_inv():
         return dict(conn.execute("SELECT lvl, count FROM inventory WHERE wallet=?", (st.session_state.wallet,)).fetchall())
 
 def gacha_pull(n):
+    # 희망 밸런스 (i^2.2)
     levels = list(range(1, 101))
     weights = [100000 / (i**2.2) for i in levels] 
     return random.choices(levels, weights=weights, k=n)
 
 def calculate_reward(lvl):
+    # 30% 회수 밸런스
     if lvl <= 100: return 0.003 * (1.05**(lvl-1))
     else: return (0.003 * (1.05**99)) + ((lvl - 100) * 0.2)
 
@@ -278,7 +278,7 @@ with tabs[1]:
         else:
             if st.button(f"{T('pull_100')} (1.00 SOL)", key="btn_p100", type="primary"): st.session_state.confirm_target = "p100"; st.rerun()
 
-# === 3. 보관함 ===
+# === 3. 보관함 (Syntax Error 수정됨) ===
 with tabs[2]:
     st.subheader(T("tab_inv"))
     inv = get_inv()
@@ -311,7 +311,7 @@ with tabs[2]:
                         if cnt > 0:
                             r = cnt * calculate_reward(lvl)
                             update_inventory(lvl, -cnt); tr += r
-                            record_profit_and_rank(0, lvl) # 레벨 기록
+                            record_profit_and_rank(0, lvl) # 일괄 판매 랭킹 갱신
                     update_balance(tr); record_profit_and_rank(tr, 0); st.toast(T("toast_jail", r=tr), icon="💰"); st.session_state.confirm_target = None; st.rerun()
                 if c2.button(T("btn_no"), key="jail_n"): st.session_state.confirm_target = None; st.rerun()
             else:
@@ -323,4 +323,29 @@ with tabs[2]:
         for lvl, count in sorted(inv.items(), reverse=True):
             if count > 0:
                 with st.container():
-                    c1, c2, c3 = st.columns([1,
+                    # [수정 완료] st.columns 구문 오류 수정
+                    c1, c2, c3 = st.columns([1, 2, 2])
+                    with c1: st.image(get_img_url(lvl), width=60)
+                    with c2: st.markdown(f"#### {get_criminal_name(lvl)}"); st.markdown(f"Count: <span class='neon'>{count}</span>", unsafe_allow_html=True)
+                    with c3:
+                        if count >= 2 and lvl < 1000:
+                            if st.button(f"🧬 (2->1)", key=f"btn_f_{lvl}"): 
+                                update_inventory(lvl, -2); update_inventory(lvl+1, 1); st.toast("Success!", icon="✨"); st.rerun()
+                        r = calculate_reward(lvl)
+                        if st.button(f"🔒 (+{r:.4f})", key=f"btn_j_{lvl}"): 
+                            update_inventory(lvl, -1); update_balance(r); 
+                            record_profit_and_rank(r, lvl); st.rerun()
+                st.markdown("---")
+
+# === 4. 명예의 전당 ===
+with tabs[3]:
+    st.subheader(T("rank_title"))
+    st.caption(T("rank_desc"))
+    with get_db() as conn:
+        ranks = conn.execute("SELECT wallet, IFNULL(balance, 0.0), IFNULL(total_profit, 0.0), IFNULL(max_sold_lvl, 0) FROM users WHERE total_profit > 0 ORDER BY total_profit DESC, max_sold_lvl DESC LIMIT 10").fetchall()
+    
+    if not ranks: st.info(T("rank_empty"))
+    else:
+        for i, (w, b, p, m) in enumerate(ranks):
+            medal = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
+            st.markdown(f"<div class='card-box' style='padding:15px; text-align:left; display:flex; justify-content:space-between;'><span style='font-size:1.2em'>{medal} <span class='neon'>{w}</span></span><span style='text-align:right'><span class='gold'>+{p:.4f} SOL</span> <span class='red'>Lv.{m}</span></span></div>", unsafe_allow_html=True)
