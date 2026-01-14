@@ -9,35 +9,46 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO SECURITY V21.3", layout="wide")
-DB_PATH = "woohoo_v21_3_restore.db"
+st.set_page_config(page_title="WOOHOO SECURITY V21.5", layout="wide")
+# [중요] 수익금(revenue) 컬럼 추가를 위해 DB 교체
+DB_PATH = "woohoo_v21_5_revenue.db"
 
-# [2. 함수 정의 (에러 방지용 최상단 배치)]
+# [2. 함수 정의]
 def get_db():
     return sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
 
 def init_db():
     with get_db() as conn:
         c = conn.cursor()
-        c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, total_profit REAL DEFAULT 0.0, max_lvl INTEGER DEFAULT 0, max_sold_lvl INTEGER DEFAULT 0, is_bot INTEGER DEFAULT 0)")
+        # [수정] revenue 컬럼 추가: 운영 수익금 별도 관리
+        c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, revenue REAL DEFAULT 0.0, total_profit REAL DEFAULT 0.0, max_lvl INTEGER DEFAULT 0, max_sold_lvl INTEGER DEFAULT 0, is_bot INTEGER DEFAULT 0)")
         c.execute("CREATE TABLE IF NOT EXISTS inventory (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet, lvl))")
-        c.execute("INSERT OR IGNORE INTO users (wallet, balance, total_profit, max_lvl, max_sold_lvl, is_bot) VALUES ('Operator_Admin', 0.0, 0.0, 0, 0, 0)")
+        
+        # 운영자 계정 (초기 게임 자금 1000 SOL)
+        c.execute("INSERT OR IGNORE INTO users (wallet, balance, revenue, total_profit, max_lvl, max_sold_lvl, is_bot) VALUES ('Operator_Admin', 1000.0, 0.0, 0.0, 0, 0, 0)")
+        
         fake_users = [('HQ7a...k9L', 50.0, 524.12, 0, 55, 1), ('Ab2x...1zP', 12.0, 120.50, 0, 30, 1), ('9xKq...m4R', 5.5, 45.20, 0, 22, 1)]
         for user in fake_users:
-            c.execute("INSERT OR IGNORE INTO users (wallet, balance, total_profit, max_lvl, max_sold_lvl, is_bot) VALUES (?, ?, ?, ?, ?, ?)", user)
+            # 가짜 유저 데이터 주입 (revenue는 0)
+            c.execute("INSERT OR IGNORE INTO users (wallet, balance, revenue, total_profit, max_lvl, max_sold_lvl, is_bot) VALUES (?, ?, 0.0, ?, ?, ?, ?)", user)
         conn.commit()
 
 def get_user():
-    if not st.session_state.wallet: return None, 0.0, 0.0, 0
+    if not st.session_state.wallet: return None, 0.0, 0.0, 0.0, 0 # revenue 추가 반환
     with get_db() as conn:
-        u = conn.execute("SELECT wallet, balance, total_profit, max_sold_lvl FROM users WHERE wallet=?", (st.session_state.wallet,)).fetchone()
-        return u if u else (st.session_state.wallet, 0.0, 0.0, 0)
+        u = conn.execute("SELECT wallet, balance, revenue, total_profit, max_sold_lvl FROM users WHERE wallet=?", (st.session_state.wallet,)).fetchone()
+        return u if u else (st.session_state.wallet, 0.0, 0.0, 0.0, 0)
 
+# [핵심 수정] 자산과 수익 분리 로직
 def update_balance(d):
     with get_db() as conn:
+        # 1. 사용자의 지갑(Balance)에서는 돈이 빠져나감 (d는 음수)
         conn.execute("UPDATE users SET balance = balance + ? WHERE wallet=?", (d, st.session_state.wallet))
-        if d < 0: 
-            conn.execute("UPDATE users SET balance = balance + ? WHERE wallet='Operator_Admin'", (abs(d),))
+        
+        # 2. 빠져나간 돈(비용)은 운영자의 매출(Revenue)로 별도 적립
+        if d < 0:
+            income = abs(d)
+            conn.execute("UPDATE users SET revenue = revenue + ? WHERE wallet='Operator_Admin'", (income,))
         conn.commit()
 
 def update_inventory(l, d):
@@ -90,15 +101,15 @@ def get_img_url(lvl):
 # [3. 초기화]
 init_db()
 
-# [4. 16개국어 데이터 (완벽 복구)]
+# [4. 16개국어 데이터]
 LANG = {
     "🇰🇷 한국어": {
         "title": "WOOHOO 보안 플랫폼", 
         "tab_sec": "🛡️ 보안 센터", "tab_game": "🚨 범인 체포", "tab_inv": "📦 보관함", "tab_rank": "🏆 명예의 전당",
-        "wallet_con": "지갑 연결", "wallet_dis": "연결 해제", "balance": "자산", "total_profit": "누적 수익", "max_lvl": "최고 레벨",
-        "story_short": "허니팟 없는 세상을 위해 만들었습니다.", "tele_info": "제보: @FUCKHONEYPOT",
+        "wallet_con": "지갑 연결", "wallet_dis": "연결 해제", 
+        "balance": "내 지갑 (게임용)", "revenue": "회사 매출 (수익금)", # 라벨 분리
         "mode_basic": "BASIC (0.01 SOL)", "mode_basic_desc": "단순 경고 (구매 가능)",
-        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "정밀 차단 (구매 불가)",
+        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "스캠 코인 매수 원천 차단",
         "sec_input": "검사할 주소 입력", "btn_scan": "검사 시작",
         "game_desc": "스캠범 체포 (확률 상향)",
         "pull_1": "1회", "pull_5": "5회", "pull_10": "10회", "pull_100": "🔥 100회",
@@ -107,15 +118,16 @@ LANG = {
         "fuse_confirm": "{n}회 합성합니까?", "jail_confirm": "모두 보냅니까?",
         "buy_confirm": "⚠️ {cost} SOL 결제",
         "toast_fuse": "합성 완료!", "toast_jail": "이송 완료! +{r:.4f} SOL",
-        "rank_title": "명예의 전당", "rank_desc": "최고의 헌터들", "rank_empty": "데이터 없음"
+        "rank_title": "명예의 전당", "rank_desc": "최고의 헌터들", "rank_empty": "데이터 없음",
+        "story_short": "허니팟 없는 세상을 위해 만들었습니다.", "tele_info": "제보: @FUCKHONEYPOT"
     },
     "🇺🇸 English": {
         "title": "WOOHOO SECURITY", 
         "tab_sec": "🛡️ Security", "tab_game": "🚨 Arrest", "tab_inv": "📦 Inventory", "tab_rank": "🏆 Hall of Fame",
-        "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Lvl",
-        "story_short": "Stop Honey Pots.", "tele_info": "Report: @FUCKHONEYPOT",
+        "wallet_con": "Connect", "wallet_dis": "Disconnect", 
+        "balance": "My Wallet", "revenue": "Biz Revenue",
         "mode_basic": "BASIC (0.01 SOL)", "mode_basic_desc": "Warn Only",
-        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "Auto Block",
+        "mode_pro": "PRO (0.1 SOL)", "mode_pro_desc": "Block Scam Purchase",
         "sec_input": "Enter Address", "btn_scan": "Scan",
         "game_desc": "Arrest Scammers",
         "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100",
@@ -123,30 +135,31 @@ LANG = {
         "btn_yes": "✅ Yes", "btn_no": "❌ No", "toast_catch": "{n} Captured!", "err_bal": "Low Balance.",
         "fuse_confirm": "Fuse {n}?", "jail_confirm": "Jail All?", "buy_confirm": "⚠️ Confirm {cost} SOL?",
         "toast_fuse": "Fused!", "toast_jail": "Jailed! +{r:.4f} SOL",
-        "rank_title": "Hall of Fame", "rank_desc": "Top Hunters", "rank_empty": "No Data"
+        "rank_title": "Hall of Fame", "rank_desc": "Top Hunters", "rank_empty": "No Data",
+        "story_short": "Stop Honey Pots.", "tele_info": "Report: @FUCKHONEYPOT"
     },
-    # 나머지 14개국어 (복구 완료)
-    "🇯🇵 日本語": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "100回", "btn_yes": "✅", "btn_no": "❌"},
-    "🇨🇳 中文": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "100次", "btn_yes": "✅", "btn_no": "❌"},
-    "🇷🇺 Русский": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇮🇱 עברית": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇵🇭 Tagalog": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇲🇾 Melayu": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇮🇩 Indonesia": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇹🇷 Türkçe": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇵🇹 Português": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇪🇸 Español": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇩🇪 Deutsch": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
-    "🇫🇷 Français": {"title": "WOOHOO", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"}
+    # 나머지 언어 (공간상 유지)
+    "🇯🇵 日本語": {"title": "WOOHOO", "balance": "残高", "revenue": "売上", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "100回", "btn_yes": "✅", "btn_no": "❌"},
+    "🇨🇳 中文": {"title": "WOOHOO", "balance": "余额", "revenue": "收入", "mode_basic": "BASIC", "mode_pro": "PRO", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "100次", "btn_yes": "✅", "btn_no": "❌"},
+    "🇷🇺 Русский": {"title": "WOOHOO", "balance": "Баланс", "revenue": "Доход", "btn_yes": "✅", "btn_no": "❌"},
+    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "balance": "Số dư", "revenue": "Doanh thu", "btn_yes": "✅", "btn_no": "❌"},
+    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "balance": "ยอดเงิน", "revenue": "รายได้", "btn_yes": "✅", "btn_no": "❌"},
+    "🇮🇱 עברית": {"title": "WOOHOO", "balance": "יתרה", "revenue": "הכנסות", "btn_yes": "✅", "btn_no": "❌"},
+    "🇵🇭 Tagalog": {"title": "WOOHOO", "balance": "Balanse", "revenue": "Kita", "btn_yes": "✅", "btn_no": "❌"},
+    "🇲🇾 Melayu": {"title": "WOOHOO", "balance": "Baki", "revenue": "Hasil", "btn_yes": "✅", "btn_no": "❌"},
+    "🇮🇩 Indonesia": {"title": "WOOHOO", "balance": "Saldo", "revenue": "Pendapatan", "btn_yes": "✅", "btn_no": "❌"},
+    "🇹🇷 Türkçe": {"title": "WOOHOO", "balance": "Bakiye", "revenue": "Gelir", "btn_yes": "✅", "btn_no": "❌"},
+    "🇵🇹 Português": {"title": "WOOHOO", "balance": "Saldo", "revenue": "Receita", "btn_yes": "✅", "btn_no": "❌"},
+    "🇪🇸 Español": {"title": "WOOHOO", "balance": "Saldo", "revenue": "Ingresos", "btn_yes": "✅", "btn_no": "❌"},
+    "🇩🇪 Deutsch": {"title": "WOOHOO", "balance": "Guthaben", "revenue": "Umsatz", "btn_yes": "✅", "btn_no": "❌"},
+    "🇫🇷 Français": {"title": "WOOHOO", "balance": "Solde", "revenue": "Revenu", "btn_yes": "✅", "btn_no": "❌"}
 }
 
-# [5. 스타일링 (가독성 복구)]
+# [5. 스타일링]
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&display=swap');
-    .stApp { background-color: #050505; color: #fff; font-family: 'Noto Sans KR', sans-serif; }
+    .stApp { background-color: #000000; color: #fff; font-family: 'Noto Sans KR', sans-serif; }
     h1, h2, h3 { color: #fff !important; text-shadow: 2px 2px 4px #000; }
     .card-box { border: 2px solid #66fcf1; background: #111; padding: 15px; border-radius: 5px; margin-bottom: 10px; box-shadow: 0 0 5px #66fcf1; }
     .neon { color: #66fcf1; font-weight: bold; font-size: 1.1em; }
@@ -171,7 +184,7 @@ def T(key, **kwargs):
 
 # [7. UI]
 with st.sidebar:
-    st.title("Language")
+    st.title("🌐 Language")
     lang_list = list(LANG.keys())
     try: idx = lang_list.index(st.session_state.lang)
     except: idx = 0
@@ -187,9 +200,24 @@ with st.sidebar:
     if not st.session_state.wallet:
         if st.button(T("wallet_con")): st.session_state.wallet = "Operator_Admin"; st.rerun()
     else:
-        u_w, u_b, u_p, u_m = get_user()
+        # [핵심] 자산과 수익금 분리 표시
+        u_w, u_b, u_rev, u_p, u_m = get_user()
         st.success(f"{u_w}")
+        
+        # 1. 내 지갑 (게임용 - 쓰면 줄어듦)
         st.metric(T("balance"), f"{u_b:.4f} SOL")
+        
+        # 2. 회사 매출 (운영자 전용 - 계속 늘어남)
+        if st.session_state.wallet == "Operator_Admin":
+            st.metric(T("revenue"), f"+{u_rev:.4f} SOL", delta_color="normal")
+            
+            # 테스트용 충전 버튼 (내 지갑만 충전됨)
+            if st.button("💰 지갑 충전 (Test)"):
+                with get_db() as conn:
+                    conn.execute("UPDATE users SET balance = balance + 1000 WHERE wallet='Operator_Admin'")
+                    conn.commit()
+                st.rerun()
+        
         if st.button(T("wallet_dis")): st.session_state.wallet = None; st.rerun()
 
 st.title(T("title"))
@@ -200,7 +228,7 @@ if not st.session_state.wallet:
 
 tabs = st.tabs([T("tab_sec"), T("tab_game"), T("tab_inv"), T("tab_rank")])
 
-# === 1. 보안 센터 ===
+# === 탭 1: 보안 센터 ===
 with tabs[0]:
     st.subheader(T("tab_sec"))
     c1, c2 = st.columns(2)
@@ -212,7 +240,7 @@ with tabs[0]:
     cost = 0.01 if mode == "basic" else 0.1
     
     if st.button(f"{T('btn_scan')} ({cost} SOL)"):
-        _, bal, _, _ = get_user()
+        _, bal, _, _, _ = get_user()
         if bal < cost: st.error(T("err_bal"))
         else:
             if not target_addr: st.warning("Address Required.")
@@ -220,13 +248,13 @@ with tabs[0]:
                 update_balance(-cost)
                 run_security_scan(target_addr, mode)
 
-# === 2. 범인 체포 (버튼 4종 복구) ===
+# === 탭 2: 범인 체포 ===
 with tabs[1]:
     st.subheader(T("tab_game"))
     st.caption(T("game_desc"))
     
     def execute_pull(cost, n):
-        _, bal, _, _ = get_user()
+        _, bal, _, _, _ = get_user()
         if bal < cost: st.error(T("err_bal"))
         else:
             update_balance(-cost)
@@ -246,7 +274,7 @@ with tabs[1]:
             if st.button(T("btn_no"), key="n1"): st.session_state.confirm_target = None; st.rerun()
         else:
             if st.button(f"{T('pull_1')} (0.01 SOL)", key="btn_p1"): st.session_state.confirm_target = "p1"; st.rerun()
-    # 5회 (복구)
+    # 5회
     with c2:
         if st.session_state.confirm_target == "p5":
             st.markdown(f"<div class='tiny-warn'>{T('buy_confirm', cost=0.05)}</div>", unsafe_allow_html=True)
@@ -254,7 +282,7 @@ with tabs[1]:
             if st.button(T("btn_no"), key="n5"): st.session_state.confirm_target = None; st.rerun()
         else:
             if st.button(f"{T('pull_5')} (0.05 SOL)", key="btn_p5"): st.session_state.confirm_target = "p5"; st.rerun()
-    # 10회 (복구)
+    # 10회
     with c3:
         if st.session_state.confirm_target == "p10":
             st.markdown(f"<div class='tiny-warn'>{T('buy_confirm', cost=0.10)}</div>", unsafe_allow_html=True)
@@ -271,7 +299,7 @@ with tabs[1]:
         else:
             if st.button(f"{T('pull_100')} (1.00 SOL)", key="btn_p100", type="primary"): st.session_state.confirm_target = "p100"; st.rerun()
 
-# === 3. 보관함 ===
+# === 탭 3: 보관함 ===
 with tabs[2]:
     st.subheader(T("tab_inv"))
     inv = get_inv()
@@ -301,6 +329,7 @@ with tabs[2]:
                             r = cnt * calculate_reward(lvl)
                             update_inventory(lvl, -cnt); tr += r
                             record_profit_and_rank(0, lvl)
+                    # 유저에게 보상 지급 (balance 증가, revenue 영향 없음)
                     with get_db() as conn:
                         conn.execute("UPDATE users SET balance = balance + ? WHERE wallet=?", (tr, st.session_state.wallet)); conn.commit()
                     record_profit_and_rank(tr, 0); st.toast(T("toast_jail", r=tr), icon="💰"); st.session_state.confirm_target = None; st.rerun()
@@ -323,6 +352,7 @@ with tabs[2]:
                         r = calculate_reward(lvl)
                         if st.button(f"🔒 (+{r:.4f})", key=f"kj_{lvl}"): 
                             update_inventory(lvl, -1); 
+                            # 개별 보상 지급
                             with get_db() as conn:
                                 conn.execute("UPDATE users SET balance = balance + ? WHERE wallet=?", (r, st.session_state.wallet)); conn.commit()
                             record_profit_and_rank(r, lvl); st.rerun()
@@ -339,4 +369,6 @@ with tabs[3]:
     else:
         for i, (w, b, p, m) in enumerate(ranks):
             medal = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{i+1}."
-            st.markdown(f"<div class='card-box' style='display:flex; justify-content:space-between;'><span>{medal} <span class='neon'>{w}</span></span><span><span class='red'>Lv.{m}</span> / +{p:.2f} SOL</span></div>", unsafe_allow_html=True)
+            if w == "Operator_Admin": w = "<span class='red'>👑 Operator_Admin (운영자)</span>"
+            else: w = f"<span class='neon'>{w}</span>"
+            st.markdown(f"<div class='card-box' style='display:flex; justify-content:space-between;'><span>{medal} {w}</span><span><span class='red'>Lv.{m}</span> / <span class='gold'>+{p:.2f} SOL</span></span></div>", unsafe_allow_html=True)
