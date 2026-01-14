@@ -9,16 +9,16 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO GLOBAL V20.0", layout="wide")
-DB_PATH = "woohoo_v20_final_fix.db"
+st.set_page_config(page_title="WOOHOO GLOBAL V20.1", layout="wide")
+DB_PATH = "woohoo_v20_1_balance.db"
 
-# [2. 16개국어 데이터 (완전판)]
+# [2. 16개국어 데이터]
 LANG = {
     "🇰🇷 한국어": {
         "title": "WOOHOO 보안 플랫폼", "tab_sec": "🛡️ 보안 센터", "tab_game": "🚨 범인 체포", "tab_inv": "📦 보관함", "tab_rank": "🏆 명예의 전당",
         "wallet_con": "지갑 연결", "wallet_dis": "연결 해제", "balance": "자산", "total_profit": "누적 수익", "max_lvl": "최고 레벨",
         "sec_btn": "💰 매수 시도", "sec_warn": "주소를 입력하세요.", "sec_safe": "✅ 안전 (점수: {score})", "sec_danger": "🚨 [경고] 위험 점수 {score}!", "sec_block": "🚫 차단됨!",
-        "game_desc": "비용을 지불하고 체포합니다. (최대 Lv.100 출현 / Lv.1000은 합성)",
+        "game_desc": "비용을 지불하고 체포합니다. (극악 확률 / Lv.1000은 합성)",
         "pull_1": "1회 체포", "pull_5": "5회 체포", "pull_10": "10회 체포", "pull_100": "🔥 100회 체포",
         "inv_empty": "보관함이 비어있습니다.", "fuse_all": "🧬 일괄 합성", "jail_all": "🔒 일괄 감옥",
         "btn_yes": "✅ 승인", "btn_no": "❌ 취소", "toast_catch": "{n}명 체포 완료!", "err_bal": "잔액이 부족합니다.",
@@ -33,7 +33,7 @@ LANG = {
         "title": "WOOHOO SECURITY", "tab_sec": "🛡️ Security", "tab_game": "🚨 Arrest", "tab_inv": "📦 Inventory", "tab_rank": "🏆 Hall of Fame",
         "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Lvl",
         "sec_btn": "💰 Buy", "sec_warn": "Enter Address.", "sec_safe": "✅ Safe ({score})", "sec_danger": "🚨 Risk {score}!", "sec_block": "🚫 Blocked!",
-        "game_desc": "Arrest criminals. Max draw Lv.100.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100",
+        "game_desc": "Arrest criminals. Hardcore rates.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100",
         "inv_empty": "Empty.", "fuse_all": "🧬 Fuse All", "jail_all": "🔒 Jail All",
         "btn_yes": "✅ Yes", "btn_no": "❌ No", "toast_catch": "{n} Captured!", "err_bal": "Low Balance.",
         "fuse_confirm": "Fuse {n} times?", "jail_confirm": "Jail all?", "buy_confirm": "⚠️ Confirm {cost} SOL?",
@@ -45,7 +45,7 @@ LANG = {
         "title": "WOOHOO セキュリティ", "tab_sec": "🛡️ セキュリティ", "tab_game": "🚨 逮捕", "tab_inv": "📦 保管庫", "tab_rank": "🏆 殿堂入り",
         "wallet_con": "接続", "wallet_dis": "切断", "balance": "残高", "total_profit": "収益", "max_lvl": "最高Lv",
         "sec_btn": "💰 購入", "sec_warn": "アドレス入力", "sec_safe": "✅ 安全 ({score})", "sec_danger": "🚨 危険 {score}!", "sec_block": "🚫 遮断!",
-        "game_desc": "費用を払って逮捕。最大Lv.100。", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "🔥 100回",
+        "game_desc": "逮捕。激辛確率。", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "🔥 100回",
         "inv_empty": "空です。", "fuse_all": "🧬 一括合成", "jail_all": "🔒 一括送獄",
         "btn_yes": "✅ はい", "btn_no": "❌ いいえ", "toast_catch": "{n}名 逮捕!", "err_bal": "残高不足",
         "fuse_confirm": "{n}回 合成しますか？", "jail_confirm": "全員送獄しますか？",
@@ -58,7 +58,7 @@ LANG = {
         "title": "WOOHOO 安全平台", "tab_sec": "🛡️ 安全中心", "tab_game": "🚨 逮捕", "tab_inv": "📦 仓库", "tab_rank": "🏆 名人堂",
         "wallet_con": "连接", "wallet_dis": "断开", "balance": "余额", "total_profit": "收益", "max_lvl": "最高等级",
         "sec_btn": "💰 购买", "sec_warn": "输入地址", "sec_safe": "✅ 安全 ({score})", "sec_danger": "🚨 风险 {score}!", "sec_block": "🚫 拦截!",
-        "game_desc": "付费逮捕。最高Lv.100。", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "🔥 100次",
+        "game_desc": "付费逮捕。极低概率。", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "🔥 100次",
         "inv_empty": "空。", "fuse_all": "🧬 一键合成", "jail_all": "🔒 一键入狱",
         "btn_yes": "✅ 是", "btn_no": "❌ 否", "toast_catch": "逮捕 {n}名!", "err_bal": "余额不足",
         "fuse_confirm": "合成 {n} 次？", "jail_confirm": "全部入狱？",
@@ -67,7 +67,7 @@ LANG = {
         "rank_title": "名人堂", "rank_desc": "仅显示已获利者", "rank_empty": "暂无数据",
         "name_1": "扒手", "name_10": "流氓", "name_50": "干部", "name_100": "魔王", "name_500": "主宰", "name_1000": "神"
     },
-    # 나머지 언어 (공간상 영어 폴백하지만 기능은 유지)
+    # 나머지 언어 (영어 폴백)
     "🇷🇺 Русский": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "БОГ"},
     "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "THẦN"},
     "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "พระเจ้า"},
@@ -91,25 +91,17 @@ def init_db():
         c = conn.cursor()
         c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, total_profit REAL DEFAULT 0.0, max_lvl INTEGER DEFAULT 0)")
         c.execute("CREATE TABLE IF NOT EXISTS inventory (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet, lvl))")
-        # [중요] 운영자 계정은 딱 한 번만 1000 SOL 지급 (INSERT OR IGNORE)
+        # 운영자 계정 초기 자금 1000 SOL (테스트용)
         c.execute("INSERT OR IGNORE INTO users (wallet, balance, total_profit, max_lvl) VALUES ('Operator_Admin', 1000.0, 0.0, 0)")
         conn.commit()
 init_db()
 
-# [4. 유틸리티 (언어 감지 강화)]
+# [4. 유틸리티]
 if 'lang' not in st.session_state: st.session_state.lang = "🇰🇷 한국어"
 
 def T(key, **kwargs):
-    # 1. 현재 언어 데이터 가져오기
-    lang_data = LANG.get(st.session_state.lang)
-    
-    # 2. 데이터가 없거나(None) 해당 키가 없으면 -> 영어로 폴백
-    if not lang_data or key not in lang_data:
-        lang_data = LANG["🇺🇸 English"]
-    
-    # 3. 영어에도 없으면 -> 키값 그대로 표시
-    text = lang_data.get(key, key)
-    
+    lang_data = LANG.get(st.session_state.lang, LANG["🇺🇸 English"])
+    text = lang_data.get(key, LANG["🇺🇸 English"].get(key, key))
     if kwargs: return text.format(**kwargs)
     return text
 
@@ -128,7 +120,7 @@ def get_criminal_name(lvl):
 def get_img_url(lvl):
     return f"https://api.dicebear.com/7.x/bottts/svg?seed=WoohooCrime{lvl}&backgroundColor=1a1a1a"
 
-# [5. 로직 함수 (무한 증식 버그 수정됨)]
+# [5. 게임 로직 (밸런스 패치 핵심)]
 def process_security_action(token_address, user_tier):
     risk_score = random.randint(0, 100)
     if user_tier.startswith("BASIC"):
@@ -167,11 +159,18 @@ def get_inv():
         return dict(conn.execute("SELECT lvl, count FROM inventory WHERE wallet=?", (st.session_state.wallet,)).fetchall())
 
 def gacha_pull(n):
+    # [확률 너프]
+    # 기존: 1.05배씩 감소 -> 고레벨 너무 잘 나옴
+    # 변경: i의 3제곱(Cubic)으로 감소 -> 고레벨 극악 확률
     levels = list(range(1, 101))
-    weights = [1000 / (1.05 ** i) for i in levels]
+    weights = [1000000 / (i**3) for i in levels] 
+    # Lv1 Weight: 1,000,000
+    # Lv2 Weight: 125,000
+    # Lv10 Weight: 1,000
     return random.choices(levels, weights=weights, k=n)
 
 def calculate_reward(lvl):
+    # 판매 가격은 그대로 둬서 Lv.1 팔면 손해(-0.005)나게 유지
     if lvl <= 100: return 0.005 * (1.05**(lvl-1))
     else: return (0.005 * (1.05**99)) + ((lvl - 100) * 0.2)
 
@@ -195,7 +194,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# [7. 세션 관리]
+# [7. 세션]
 if 'wallet' not in st.session_state: st.session_state.wallet = None
 if 'user_tier' not in st.session_state: st.session_state.user_tier = "BASIC (0.01 SOL)"
 if 'confirm_target' not in st.session_state: st.session_state.confirm_target = None
@@ -204,14 +203,10 @@ if 'confirm_target' not in st.session_state: st.session_state.confirm_target = N
 with st.sidebar:
     st.title("🌐 Language")
     lang_list = list(LANG.keys())
-    # 현재 언어 인덱스 찾기
     try: idx = lang_list.index(st.session_state.lang)
     except: idx = 0
-    # selectbox가 변경되면 즉시 st.session_state.lang을 업데이트하고 rerun
-    new_lang = st.selectbox("Select", lang_list, index=idx)
-    if new_lang != st.session_state.lang:
-        st.session_state.lang = new_lang
-        st.rerun() # [중요] 즉시 새로고침하여 언어 반영
+    selected_lang = st.selectbox("Select", lang_list, index=idx)
+    if selected_lang != st.session_state.lang: st.session_state.lang = selected_lang; st.rerun()
     
     st.divider()
     st.header(f"🔐 {T('wallet_con')}")
@@ -310,30 +305,32 @@ with tabs[2]:
         with bc1:
             if st.session_state.confirm_target == "fuse_all":
                 st.markdown(f"<div class='tiny-warn'>{T('fuse_confirm', n=total_fusions)}</div>", unsafe_allow_html=True)
-                cy, cn = st.columns(2)
-                if cy.button(T("btn_yes"), key="fy"):
+                c1, c2 = st.columns(2)
+                if c1.button(T("btn_yes"), key="fuse_y"):
                     for lvl in sorted(inv.keys()):
                         f_cnt = inv[lvl] // 2
-                        if f_cnt > 0 and lvl < 1000: update_inventory(lvl, -(f_cnt*2)); update_inventory(lvl+1, f_cnt)
+                        if f_cnt > 0 and lvl < 1000:
+                            update_inventory(lvl, -(f_cnt*2)); update_inventory(lvl+1, f_cnt)
                     st.toast(T("toast_fuse"), icon="🧬"); st.session_state.confirm_target = None; st.rerun()
-                if cn.button(T("btn_no"), key="fn"): st.session_state.confirm_target = None; st.rerun()
+                if c2.button(T("btn_no"), key="fuse_n"): st.session_state.confirm_target = None; st.rerun()
             else:
-                if st.button(f"{T('fuse_all')} ({total_fusions})", type="primary", disabled=total_fusions==0, key="bfall"): st.session_state.confirm_target = "fuse_all"; st.rerun()
+                if st.button(f"{T('fuse_all')} ({total_fusions})", type="primary", disabled=total_fusions==0, key="btn_fuse_all"):
+                    st.session_state.confirm_target = "fuse_all"; st.rerun()
         
         with bc2:
             if st.session_state.confirm_target == "jail_all":
                 st.markdown(f"<div class='tiny-warn'>{T('jail_confirm')}</div>", unsafe_allow_html=True)
-                cy, cn = st.columns(2)
-                if cy.button(T("btn_yes"), key="jy"):
+                c1, c2 = st.columns(2)
+                if c1.button(T("btn_yes"), key="jail_y"):
                     tr = 0
                     for lvl, cnt in inv.items():
                         if cnt > 0:
                             r = cnt * calculate_reward(lvl)
                             update_inventory(lvl, -cnt); tr += r
                     update_balance(tr); record_profit(tr); st.toast(T("toast_jail", r=tr), icon="💰"); st.session_state.confirm_target = None; st.rerun()
-                if cn.button(T("btn_no"), key="jn"): st.session_state.confirm_target = None; st.rerun()
+                if c2.button(T("btn_no"), key="jail_n"): st.session_state.confirm_target = None; st.rerun()
             else:
-                if st.button(T("jail_all"), key="bjall"): st.session_state.confirm_target = "jail_all"; st.rerun()
+                if st.button(T("jail_all"), key="btn_jail_all"): st.session_state.confirm_target = "jail_all"; st.rerun()
 
     st.divider()
     if not inv: st.info(T("inv_empty"))
@@ -346,10 +343,10 @@ with tabs[2]:
                     with c2: st.markdown(f"#### {get_criminal_name(lvl)}"); st.markdown(f"Count: <span class='neon'>{count}</span>", unsafe_allow_html=True)
                     with c3:
                         if count >= 2 and lvl < 1000:
-                            if st.button(f"🧬 (2->1)", key=f"kf_{lvl}"): 
+                            if st.button(f"🧬 (2->1)", key=f"btn_f_{lvl}"): 
                                 update_inventory(lvl, -2); update_inventory(lvl+1, 1); st.toast("Success!", icon="✨"); st.rerun()
                         r = calculate_reward(lvl)
-                        if st.button(f"🔒 (+{r:.4f})", key=f"kj_{lvl}"): 
+                        if st.button(f"🔒 (+{r:.4f})", key=f"btn_j_{lvl}"): 
                             update_inventory(lvl, -1); update_balance(r); record_profit(r); st.rerun()
                 st.markdown("---")
 
