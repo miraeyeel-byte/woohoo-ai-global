@@ -9,17 +9,17 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO GLOBAL V20.1", layout="wide")
-DB_PATH = "woohoo_v20_1_balance.db"
+st.set_page_config(page_title="WOOHOO GLOBAL V20.4", layout="wide")
+DB_PATH = "woohoo_v20_4_dopamine.db"
 
-# [2. 16개국어 데이터]
+# [2. 16개국어 데이터 (완전판)]
 LANG = {
     "🇰🇷 한국어": {
         "title": "WOOHOO 보안 플랫폼", "tab_sec": "🛡️ 보안 센터", "tab_game": "🚨 범인 체포", "tab_inv": "📦 보관함", "tab_rank": "🏆 명예의 전당",
         "wallet_con": "지갑 연결", "wallet_dis": "연결 해제", "balance": "자산", "total_profit": "누적 수익", "max_lvl": "최고 레벨",
         "sec_btn": "💰 매수 시도", "sec_warn": "주소를 입력하세요.", "sec_safe": "✅ 안전 (점수: {score})", "sec_danger": "🚨 [경고] 위험 점수 {score}!", "sec_block": "🚫 차단됨!",
-        "game_desc": "비용을 지불하고 체포합니다. (극악 확률 / Lv.1000은 합성)",
-        "pull_1": "1회 체포", "pull_5": "5회 체포", "pull_10": "10회 체포", "pull_100": "🔥 100회 체포",
+        "game_desc": "비용을 지불하고 체포합니다. (확률 대폭 상향! / Lv.1000은 합성)",
+        "pull_1": "1회 체포", "pull_5": "5회 체포", "pull_10": "10회 체포", "pull_100": "🔥 100회 체포 (확정급)",
         "inv_empty": "보관함이 비어있습니다.", "fuse_all": "🧬 일괄 합성", "jail_all": "🔒 일괄 감옥",
         "btn_yes": "✅ 승인", "btn_no": "❌ 취소", "toast_catch": "{n}명 체포 완료!", "err_bal": "잔액이 부족합니다.",
         "fuse_confirm": "총 {n}회 합성을 진행합니까?", "jail_confirm": "모두 감옥으로 보내고 보상을 받겠습니까?",
@@ -33,7 +33,7 @@ LANG = {
         "title": "WOOHOO SECURITY", "tab_sec": "🛡️ Security", "tab_game": "🚨 Arrest", "tab_inv": "📦 Inventory", "tab_rank": "🏆 Hall of Fame",
         "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Lvl",
         "sec_btn": "💰 Buy", "sec_warn": "Enter Address.", "sec_safe": "✅ Safe ({score})", "sec_danger": "🚨 Risk {score}!", "sec_block": "🚫 Blocked!",
-        "game_desc": "Arrest criminals. Hardcore rates.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100",
+        "game_desc": "Arrest criminals. High Rates! Max draw Lv.100.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100 (High Luck)",
         "inv_empty": "Empty.", "fuse_all": "🧬 Fuse All", "jail_all": "🔒 Jail All",
         "btn_yes": "✅ Yes", "btn_no": "❌ No", "toast_catch": "{n} Captured!", "err_bal": "Low Balance.",
         "fuse_confirm": "Fuse {n} times?", "jail_confirm": "Jail all?", "buy_confirm": "⚠️ Confirm {cost} SOL?",
@@ -41,45 +41,20 @@ LANG = {
         "rank_title": "Hall of Fame", "rank_desc": "Realized profits only.", "rank_empty": "No data.",
         "name_1": "Pickpocket", "name_10": "Thug", "name_50": "Boss", "name_100": "Overlord", "name_500": "Ruler", "name_1000": "GOD"
     },
-    "🇯🇵 日本語": {
-        "title": "WOOHOO セキュリティ", "tab_sec": "🛡️ セキュリティ", "tab_game": "🚨 逮捕", "tab_inv": "📦 保管庫", "tab_rank": "🏆 殿堂入り",
-        "wallet_con": "接続", "wallet_dis": "切断", "balance": "残高", "total_profit": "収益", "max_lvl": "最高Lv",
-        "sec_btn": "💰 購入", "sec_warn": "アドレス入力", "sec_safe": "✅ 安全 ({score})", "sec_danger": "🚨 危険 {score}!", "sec_block": "🚫 遮断!",
-        "game_desc": "逮捕。激辛確率。", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "🔥 100回",
-        "inv_empty": "空です。", "fuse_all": "🧬 一括合成", "jail_all": "🔒 一括送獄",
-        "btn_yes": "✅ はい", "btn_no": "❌ いいえ", "toast_catch": "{n}名 逮捕!", "err_bal": "残高不足",
-        "fuse_confirm": "{n}回 合成しますか？", "jail_confirm": "全員送獄しますか？",
-        "buy_confirm": "⚠️ {cost} SOL 決済確認",
-        "toast_fuse": "合成完了!", "toast_jail": "送獄完了! +{r:.4f} SOL",
-        "rank_title": "名誉の殿堂", "rank_desc": "収益確定者のみ", "rank_empty": "データなし",
-        "name_1": "スリ", "name_10": "チンピラ", "name_50": "幹部", "name_100": "絶対悪", "name_500": "支配者", "name_1000": "神"
-    },
-    "🇨🇳 中文": {
-        "title": "WOOHOO 安全平台", "tab_sec": "🛡️ 安全中心", "tab_game": "🚨 逮捕", "tab_inv": "📦 仓库", "tab_rank": "🏆 名人堂",
-        "wallet_con": "连接", "wallet_dis": "断开", "balance": "余额", "total_profit": "收益", "max_lvl": "最高等级",
-        "sec_btn": "💰 购买", "sec_warn": "输入地址", "sec_safe": "✅ 安全 ({score})", "sec_danger": "🚨 风险 {score}!", "sec_block": "🚫 拦截!",
-        "game_desc": "付费逮捕。极低概率。", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "🔥 100次",
-        "inv_empty": "空。", "fuse_all": "🧬 一键合成", "jail_all": "🔒 一键入狱",
-        "btn_yes": "✅ 是", "btn_no": "❌ 否", "toast_catch": "逮捕 {n}名!", "err_bal": "余额不足",
-        "fuse_confirm": "合成 {n} 次？", "jail_confirm": "全部入狱？",
-        "buy_confirm": "⚠️ 确认支付 {cost} SOL？",
-        "toast_fuse": "合成完成!", "toast_jail": "入狱完成! +{r:.4f} SOL",
-        "rank_title": "名人堂", "rank_desc": "仅显示已获利者", "rank_empty": "暂无数据",
-        "name_1": "扒手", "name_10": "流氓", "name_50": "干部", "name_100": "魔王", "name_500": "主宰", "name_1000": "神"
-    },
-    # 나머지 언어 (영어 폴백)
-    "🇷🇺 Русский": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "БОГ"},
-    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "THẦN"},
-    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "พระเจ้า"},
-    "🇮🇱 עברית": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "אלוהים"},
-    "🇵🇭 Tagalog": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "DIYOS"},
-    "🇲🇾 Melayu": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "DEWA"},
-    "🇮🇩 Indonesia": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "DEWA"},
-    "🇹🇷 Türkçe": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "TANRI"},
-    "🇵🇹 Português": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "DEUS"},
-    "🇪🇸 Español": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "DIOS"},
-    "🇩🇪 Deutsch": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "GOTT"},
-    "🇫🇷 Français": {"title": "WOOHOO", "pull_1": "x1", "pull_100": "🔥 x100", "buy_warn_text": "⚠️ {cost} SOL", "name_1000": "DIEU"}
+    "🇯🇵 日本語": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL 決済確認", "name_1000": "神", "btn_yes": "✅", "btn_no": "❌", "game_desc": "高確率ガチャ！"},
+    "🇨🇳 中文": {"title": "WOOHOO", "buy_confirm": "⚠️ 确认支付 {cost} SOL？", "name_1000": "神", "btn_yes": "✅", "btn_no": "❌", "game_desc": "高爆率！"},
+    "🇷🇺 Русский": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "БОГ", "btn_yes": "✅", "btn_no": "❌"},
+    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "THẦN", "btn_yes": "✅", "btn_no": "❌"},
+    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "พระเจ้า", "btn_yes": "✅", "btn_no": "❌"},
+    "🇮🇱 עברית": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "אלוהים", "btn_yes": "✅", "btn_no": "❌"},
+    "🇵🇭 Tagalog": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIYOS", "btn_yes": "✅", "btn_no": "❌"},
+    "🇲🇾 Melayu": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DEWA", "btn_yes": "✅", "btn_no": "❌"},
+    "🇮🇩 Indonesia": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DEWA", "btn_yes": "✅", "btn_no": "❌"},
+    "🇹🇷 Türkçe": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "TANRI", "btn_yes": "✅", "btn_no": "❌"},
+    "🇵🇹 Português": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DEUS", "btn_yes": "✅", "btn_no": "❌"},
+    "🇪🇸 Español": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIOS", "btn_yes": "✅", "btn_no": "❌"},
+    "🇩🇪 Deutsch": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "GOTT", "btn_yes": "✅", "btn_no": "❌"},
+    "🇫🇷 Français": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIEU", "btn_yes": "✅", "btn_no": "❌"}
 }
 
 # [3. DB 초기화]
@@ -91,7 +66,6 @@ def init_db():
         c = conn.cursor()
         c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, total_profit REAL DEFAULT 0.0, max_lvl INTEGER DEFAULT 0)")
         c.execute("CREATE TABLE IF NOT EXISTS inventory (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet, lvl))")
-        # 운영자 계정 초기 자금 1000 SOL (테스트용)
         c.execute("INSERT OR IGNORE INTO users (wallet, balance, total_profit, max_lvl) VALUES ('Operator_Admin', 1000.0, 0.0, 0)")
         conn.commit()
 init_db()
@@ -120,7 +94,7 @@ def get_criminal_name(lvl):
 def get_img_url(lvl):
     return f"https://api.dicebear.com/7.x/bottts/svg?seed=WoohooCrime{lvl}&backgroundColor=1a1a1a"
 
-# [5. 게임 로직 (밸런스 패치 핵심)]
+# [5. 게임 로직 (V20.4 도파민 밸런스)]
 def process_security_action(token_address, user_tier):
     risk_score = random.randint(0, 100)
     if user_tier.startswith("BASIC"):
@@ -159,20 +133,16 @@ def get_inv():
         return dict(conn.execute("SELECT lvl, count FROM inventory WHERE wallet=?", (st.session_state.wallet,)).fetchall())
 
 def gacha_pull(n):
-    # [확률 너프]
-    # 기존: 1.05배씩 감소 -> 고레벨 너무 잘 나옴
-    # 변경: i의 3제곱(Cubic)으로 감소 -> 고레벨 극악 확률
+    # [V20.4 밸런스: Quadratic (제곱) 감소]
+    # Lv.10 확률이 1% -> 100회 뽑으면 무조건 하나 나옴 (도파민 보장)
     levels = list(range(1, 101))
-    weights = [1000000 / (i**3) for i in levels] 
-    # Lv1 Weight: 1,000,000
-    # Lv2 Weight: 125,000
-    # Lv10 Weight: 1,000
+    weights = [100000 / (i**2.0) for i in levels] 
     return random.choices(levels, weights=weights, k=n)
 
 def calculate_reward(lvl):
-    # 판매 가격은 그대로 둬서 Lv.1 팔면 손해(-0.005)나게 유지
-    if lvl <= 100: return 0.005 * (1.05**(lvl-1))
-    else: return (0.005 * (1.05**99)) + ((lvl - 100) * 0.2)
+    # [보상: 30% 회수] 재도전 기회 부여
+    if lvl <= 100: return 0.003 * (1.05**(lvl-1))
+    else: return (0.003 * (1.05**99)) + ((lvl - 100) * 0.2)
 
 # [6. 스타일링]
 st.markdown("""
@@ -194,7 +164,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# [7. 세션]
+# [7. 세션 관리]
 if 'wallet' not in st.session_state: st.session_state.wallet = None
 if 'user_tier' not in st.session_state: st.session_state.user_tier = "BASIC (0.01 SOL)"
 if 'confirm_target' not in st.session_state: st.session_state.confirm_target = None
