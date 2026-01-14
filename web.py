@@ -9,21 +9,21 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO GLOBAL V19.7", layout="wide")
-DB_PATH = "woohoo_v19_7_legend.db"
+st.set_page_config(page_title="WOOHOO GLOBAL V19.8", layout="wide")
+DB_PATH = "woohoo_v19_8_compact.db"
 
-# [2. 16개국어 번역 팩 (안전장치 문구 추가)]
+# [2. 16개국어 데이터]
 LANG = {
     "🇰🇷 한국어": {
         "title": "WOOHOO 보안 플랫폼", "tab_sec": "🛡️ 보안 센터", "tab_game": "🚨 범인 체포", "tab_inv": "📦 보관함", "tab_rank": "🏆 명예의 전당",
         "wallet_con": "지갑 연결", "wallet_dis": "연결 해제", "balance": "자산", "total_profit": "누적 수익", "max_lvl": "최고 레벨",
         "sec_btn": "💰 매수 시도", "sec_warn": "주소를 입력하세요.", "sec_safe": "✅ 안전 (점수: {score})", "sec_danger": "🚨 [경고] 위험 점수 {score}!", "sec_block": "🚫 차단됨!",
         "game_desc": "비용을 지불하고 체포합니다. (최대 Lv.100 출현 / Lv.1000은 합성)",
-        "pull_1": "1회 체포", "pull_5": "5회 체포", "pull_10": "10회 체포", "pull_100": "🔥 100회 체포 (상남자)",
+        "pull_1": "1회 체포", "pull_5": "5회 체포", "pull_10": "10회 체포", "pull_100": "🔥 100회 체포",
         "inv_empty": "보관함이 비어있습니다.", "fuse_all": "🧬 일괄 합성", "jail_all": "🔒 일괄 감옥",
         "btn_yes": "✅ 승인", "btn_no": "❌ 취소", "toast_catch": "{n}명 체포 완료!", "err_bal": "잔액이 부족합니다.",
         "fuse_confirm": "총 {n}회 합성을 진행합니까?", "jail_confirm": "모두 감옥으로 보내고 보상을 받겠습니까?",
-        "buy_confirm": "⚠️ {cost} SOL이 소모됩니다. 진행하시겠습니까?",
+        "buy_confirm": "⚠️ {cost} SOL 결제 확인",
         "toast_fuse": "일괄 합성 완료!", "toast_jail": "이송 완료! +{r:.4f} SOL",
         "rank_title": "명예의 전당", "rank_desc": "수익을 실현한(판매한) 헌터만 기록됩니다.",
         "rank_empty": "아직 수익을 낸 헌터가 없습니다.",
@@ -33,21 +33,29 @@ LANG = {
         "title": "WOOHOO SECURITY", "tab_sec": "🛡️ Security", "tab_game": "🚨 Arrest", "tab_inv": "📦 Inventory", "tab_rank": "🏆 Hall of Fame",
         "wallet_con": "Connect", "wallet_dis": "Disconnect", "balance": "Balance", "total_profit": "Profit", "max_lvl": "Max Lvl",
         "sec_btn": "💰 Buy", "sec_warn": "Enter Address.", "sec_safe": "✅ Safe ({score})", "sec_danger": "🚨 Risk {score}!", "sec_block": "🚫 Blocked!",
-        "game_desc": "Arrest criminals. Max draw Lv.100.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100 (Whale)",
+        "game_desc": "Arrest criminals. Max draw Lv.100.", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "🔥 x100",
         "inv_empty": "Empty.", "fuse_all": "🧬 Fuse All", "jail_all": "🔒 Jail All",
         "btn_yes": "✅ Yes", "btn_no": "❌ No", "toast_catch": "{n} Captured!", "err_bal": "Low Balance.",
-        "fuse_confirm": "Fuse {n} times?", "jail_confirm": "Jail all?", "buy_confirm": "⚠️ Spend {cost} SOL. Proceed?",
+        "fuse_confirm": "Fuse {n} times?", "jail_confirm": "Jail all?", "buy_confirm": "⚠️ Confirm {cost} SOL?",
         "toast_fuse": "Fused!", "toast_jail": "Jailed! +{r:.4f} SOL",
         "rank_title": "Hall of Fame", "rank_desc": "Realized profits only.", "rank_empty": "No data.",
         "name_1": "Pickpocket", "name_10": "Thug", "name_50": "Boss", "name_100": "Overlord", "name_500": "Ruler", "name_1000": "GOD"
     },
-    # 나머지 언어들 (공간 절약을 위해 핵심 키값만 유지하되, 기능은 영어 폴백으로 작동)
-    "🇯🇵 日本語": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL 消費します。よろしいですか？", "name_1000": "神", "btn_yes": "✅ はい", "btn_no": "❌ いいえ"},
-    "🇨🇳 中文": {"title": "WOOHOO", "buy_confirm": "⚠️ 将花费 {cost} SOL。确认？", "name_1000": "神", "btn_yes": "✅ 是", "btn_no": "❌ 否"},
-    "🇷🇺 Русский": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL. Подтвердить?", "name_1000": "БОГ", "btn_yes": "✅ Да", "btn_no": "❌ Нет"},
-    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "buy_confirm": "⚠️ Tốn {cost} SOL. Tiếp tục?", "name_1000": "THẦN", "btn_yes": "✅ Có", "btn_no": "❌ Không"},
-    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "buy_confirm": "⚠️ ใช้ {cost} SOL ยืนยัน?", "name_1000": "พระเจ้า", "btn_yes": "✅ ใช่", "btn_no": "❌ ไม่"},
-    # ... (나머지 언어도 영어 폴백으로 정상 작동)
+    # 나머지 언어들 (공간상 영어 폴백, 기능은 정상 작동)
+    "🇯🇵 日本語": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL 決済確認", "name_1000": "神", "btn_yes": "✅ はい", "btn_no": "❌ いいえ"},
+    "🇨🇳 中文": {"title": "WOOHOO", "buy_confirm": "⚠️ 确认支付 {cost} SOL？", "name_1000": "神", "btn_yes": "✅ 是", "btn_no": "❌ 否"},
+    "🇷🇺 Русский": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "БОГ", "btn_yes": "✅ Да", "btn_no": "❌ Нет"},
+    "🇻🇳 Tiếng Việt": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "THẦN", "btn_yes": "✅ Có", "btn_no": "❌ Không"},
+    "🇹🇭 ภาษาไทย": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "พระเจ้า", "btn_yes": "✅ ใช่", "btn_no": "❌ ไม่"},
+    "🇮🇱 עברית": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "אלוהים", "btn_yes": "✅ כן", "btn_no": "❌ לא"},
+    "🇵🇭 Tagalog": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIYOS", "btn_yes": "✅ Oo", "btn_no": "❌ Hindi"},
+    "🇲🇾 Melayu": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DEWA", "btn_yes": "✅ Ya", "btn_no": "❌ Tidak"},
+    "🇮🇩 Indonesia": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DEWA", "btn_yes": "✅ Ya", "btn_no": "❌ Tidak"},
+    "🇹🇷 Türkçe": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "TANRI", "btn_yes": "✅ Evet", "btn_no": "❌ Hayır"},
+    "🇵🇹 Português": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DEUS", "btn_yes": "✅ Sim", "btn_no": "❌ Não"},
+    "🇪🇸 Español": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIOS", "btn_yes": "✅ Sí", "btn_no": "❌ No"},
+    "🇩🇪 Deutsch": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "GOTT", "btn_yes": "✅ Ja", "btn_no": "❌ Nein"},
+    "🇫🇷 Français": {"title": "WOOHOO", "buy_confirm": "⚠️ {cost} SOL?", "name_1000": "DIEU", "btn_yes": "✅ Oui", "btn_no": "❌ Non"}
 }
 
 # [3. DB 초기화]
@@ -68,7 +76,7 @@ if 'lang' not in st.session_state: st.session_state.lang = "🇰🇷 한국어"
 
 def T(key, **kwargs):
     lang_dict = LANG.get(st.session_state.lang, LANG.get("🇺🇸 English", {}))
-    text = lang_dict.get(key, LANG["🇺🇸 English"].get(key, key))
+    text = lang_dict.get(key, LANG["🇰🇷 한국어"].get(key, key))
     if kwargs: return text.format(**kwargs)
     return text
 
@@ -126,20 +134,13 @@ def get_inv():
         return dict(conn.execute("SELECT lvl, count FROM inventory WHERE wallet=?", (st.session_state.wallet,)).fetchall())
 
 def gacha_pull(n):
-    levels = list(range(1, 101)) # 100까지만 나옴 (절대 철칙)
+    levels = list(range(1, 101))
     weights = [1000 / (1.05 ** i) for i in levels]
     return random.choices(levels, weights=weights, k=n)
 
 def calculate_reward(lvl):
-    # [미친 보상 밸런스]
-    # Lv 100까지는 적당히 증가
-    if lvl <= 100: 
-        return 0.005 * (1.05**(lvl-1))
-    else:
-        # Lv 100부터는 지수함수적으로 폭발시킴
-        # Lv 982 쯤 되면 약 23,000 SOL (미친 사람 소리 나옴)
-        base = 0.6  # Lv 100 기준 약 0.6 SOL
-        return base * (1.012 ** (lvl - 100)) # 1.2%씩 복리 증가
+    if lvl <= 100: return 0.005 * (1.05**(lvl-1))
+    else: return (0.005 * (1.05**99)) + ((lvl - 100) * 0.2)
 
 # [6. 스타일링]
 st.markdown("""
@@ -157,8 +158,13 @@ st.markdown("""
     .red { color: #ff4b4b !important; font-weight: bold; }
     .stButton button { width: 100%; border-radius: 0px; font-weight: bold; border: 2px solid #66fcf1; background: #000; color: #66fcf1; }
     .stButton button:hover { background: #66fcf1; color: #000; }
-    /* 확인 메시지 박스 */
-    .warn-box { border: 2px solid #ff4b4b; background: #300; padding: 15px; margin-top: 10px; text-align: center; }
+    
+    /* [NEW] 작고 슬림한 경고창 스타일 */
+    .compact-warn {
+        border: 2px solid #ff4b4b; background: #300; padding: 8px 15px; 
+        margin-top: 5px; margin-bottom: 10px; border-radius: 5px;
+        text-align: center; font-size: 1rem; color: #ff4b4b; font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -167,7 +173,6 @@ if 'wallet' not in st.session_state: st.session_state.wallet = None
 if 'user_tier' not in st.session_state: st.session_state.user_tier = "BASIC (0.01 SOL)"
 if 'confirm_fuse_all' not in st.session_state: st.session_state.confirm_fuse_all = False
 if 'confirm_jail_all' not in st.session_state: st.session_state.confirm_jail_all = False
-# [NEW] 구매 확인 세션
 if 'confirm_buy_cost' not in st.session_state: st.session_state.confirm_buy_cost = 0.0
 if 'confirm_buy_count' not in st.session_state: st.session_state.confirm_buy_count = 0
 
@@ -216,33 +221,29 @@ with tabs[1]:
     st.subheader(T("tab_game"))
     st.caption(T("game_desc"))
     
-    # [NEW] 구매 확인 및 실행 로직
+    # [NEW] 작고 슬림한 경고창 적용
     if st.session_state.confirm_buy_cost > 0:
         cost = st.session_state.confirm_buy_cost
         n = st.session_state.confirm_buy_count
-        st.markdown(f"<div class='warn-box'><h3>{T('buy_confirm', cost=cost)}</h3></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='compact-warn'>{T('buy_confirm', cost=cost)}</div>", unsafe_allow_html=True)
         
         c1, c2 = st.columns(2)
         if c1.button(T("btn_yes"), key="buy_yes"):
             _, bal, _, _ = get_user()
-            if bal < cost:
-                st.error(T("err_bal"))
+            if bal < cost: st.error(T("err_bal"))
             else:
                 update_balance(-cost)
                 res = gacha_pull(n)
                 for r in res: update_inventory(r, 1)
                 st.toast(T("toast_catch", n=n), icon="🚨")
                 st.balloons()
-            # 초기화
             st.session_state.confirm_buy_cost = 0.0
             st.rerun()
-            
         if c2.button(T("btn_no"), key="buy_no"):
             st.session_state.confirm_buy_cost = 0.0
             st.rerun()
     
     else:
-        # 일반 버튼 표시
         c1, c2, c3, c4 = st.columns(4)
         with c1: 
             if st.button(f"{T('pull_1')} (0.01 SOL)", key="gp1"): 
@@ -311,11 +312,12 @@ with tabs[2]:
                             update_inventory(lvl, -1); update_balance(r); record_profit(r); st.rerun()
                 st.markdown("---")
 
-# === 4. 명예의 전당 ===
+# === 4. 명예의 전당 (수익 0 초과만 표시) ===
 with tabs[3]:
     st.subheader(T("rank_title"))
     st.caption(T("rank_desc"))
     with get_db() as conn:
+        # [핵심] total_profit > 0 인 유저만 조회
         ranks = conn.execute("SELECT wallet, IFNULL(balance, 0.0), IFNULL(total_profit, 0.0), IFNULL(max_lvl, 0) FROM users WHERE total_profit > 0 ORDER BY total_profit DESC, max_lvl DESC LIMIT 10").fetchall()
     
     if not ranks:
