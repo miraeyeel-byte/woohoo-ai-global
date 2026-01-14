@@ -9,8 +9,8 @@ import time
 from datetime import datetime, timedelta
 
 # [1. 기본 설정]
-st.set_page_config(page_title="WOOHOO SECURITY V22.2", layout="wide")
-DB_PATH = "woohoo_v22_2_full.db"
+st.set_page_config(page_title="WOOHOO SECURITY V22.3", layout="wide")
+DB_PATH = "woohoo_v22_3_visible.db"
 
 # [2. 함수 정의]
 def get_db():
@@ -21,7 +21,20 @@ def init_db():
         c = conn.cursor()
         c.execute("CREATE TABLE IF NOT EXISTS users (wallet TEXT PRIMARY KEY, balance REAL, revenue REAL DEFAULT 0.0, total_profit REAL DEFAULT 0.0, max_lvl INTEGER DEFAULT 0, max_sold_lvl INTEGER DEFAULT 0, rental_expiry TEXT, rental_type TEXT)")
         c.execute("CREATE TABLE IF NOT EXISTS inventory (wallet TEXT, lvl INTEGER, count INTEGER, PRIMARY KEY(wallet, lvl))")
-        c.execute("INSERT OR IGNORE INTO users (wallet, balance, revenue, total_profit, max_lvl, max_sold_lvl) VALUES ('Operator_Admin', 0.0, 0.0, 0.0, 0, 0)")
+        
+        # [수정] 운영자 기본 자금 10,000 SOL 지급
+        c.execute("INSERT OR IGNORE INTO users (wallet, balance, revenue, total_profit, max_lvl, max_sold_lvl) VALUES ('Operator_Admin', 10000.0, 0.0, 0.0, 0, 0)")
+        
+        # [복구] 명예의 전당 주작용 가짜 랭커들
+        fake_users = [
+            ('Legend_Hunter', 5000.0, 0.0, 524.12, 55, 55, None, None),
+            ('Solana_Whale', 1200.0, 0.0, 120.50, 30, 30, None, None),
+            ('Rich_Goblin', 500.0, 0.0, 45.20, 22, 22, None, None),
+            ('Crypto_Ninja', 200.0, 0.0, 12.80, 15, 15, None, None),
+            ('Newbie_Luck', 50.0, 0.0, 5.10, 10, 10, None, None)
+        ]
+        for u in fake_users:
+            c.execute("INSERT OR IGNORE INTO users (wallet, balance, revenue, total_profit, max_lvl, max_sold_lvl, rental_expiry, rental_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", u)
         conn.commit()
 
 def get_user():
@@ -107,12 +120,12 @@ def get_img_url(lvl):
 # [3. 초기화]
 init_db()
 
-# [4. 16개국어 데이터 (완벽 복구)]
+# [4. 16개국어 데이터]
 LANG = {
     "🇰🇷 한국어": {
         "title": "WOOHOO 보안 플랫폼", 
         "tab_photon": "⚡ 포톤 트레이딩", "tab_sec": "🛡️ 보안 센터", "tab_game": "🎮 미니게임", "tab_rank": "🏆 명예의 전당",
-        "wallet_con": "지갑 연결 (봇 검사)", "wallet_dis": "연결 해제", 
+        "wallet_con": "지갑 연결 (Connect)", "wallet_dis": "연결 해제 (Disconnect)", 
         "story_short": "허니팟 없는 세상을 위해 만들었습니다.", "tele_info": "제보: @FUCKHONEYPOT",
         "rental_shop": "🛒 렌탈샵 (이용권)", "rental_basic": "Basic (0.01 SOL/시간)", "rental_pro": "PRO (0.1 SOL/시간)",
         "mode_basic_desc": "위험 감지 시 경고만 함", "mode_pro_desc": "위험 감지 시 매수 원천 차단",
@@ -127,7 +140,7 @@ LANG = {
     "🇺🇸 English": {
         "title": "WOOHOO SECURITY", 
         "tab_photon": "⚡ Photon Trading", "tab_sec": "🛡️ Security Center", "tab_game": "🎮 Mini Game", "tab_rank": "🏆 Hall of Fame",
-        "wallet_con": "Connect (Anti-Bot)", "wallet_dis": "Disconnect", 
+        "wallet_con": "Connect Wallet", "wallet_dis": "Disconnect", 
         "story_short": "Stop Honey Pots.", "tele_info": "Report: @FUCKHONEYPOT",
         "rental_shop": "🛒 Rental Shop", "rental_basic": "Basic (0.01 SOL/h)", "rental_pro": "PRO (0.1 SOL/h)",
         "mode_basic_desc": "Warn Only", "mode_pro_desc": "Block Purchase",
@@ -139,7 +152,6 @@ LANG = {
         "toast_fuse": "Fused!", "toast_jail": "Jailed! +{r:.4f} SOL",
         "rank_title": "Hall of Fame", "rank_desc": "Top Hunters", "rank_empty": "No Data"
     },
-    # 나머지 14개국어 (복구)
     "🇯🇵 日本語": {"title": "WOOHOO", "tab_photon": "⚡ フォトン取引", "rental_basic": "Basic (0.01 SOL)", "rental_pro": "PRO (0.1 SOL)", "pull_1": "1回", "pull_5": "5回", "pull_10": "10回", "pull_100": "100回", "btn_yes": "✅", "btn_no": "❌"},
     "🇨🇳 中文": {"title": "WOOHOO", "tab_photon": "⚡ 光子交易", "rental_basic": "Basic (0.01 SOL)", "rental_pro": "PRO (0.1 SOL)", "pull_1": "1次", "pull_5": "5次", "pull_10": "10次", "pull_100": "100次", "btn_yes": "✅", "btn_no": "❌"},
     "🇷🇺 Русский": {"title": "WOOHOO", "tab_photon": "⚡ Трейдинг", "rental_basic": "Basic", "rental_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"},
@@ -156,32 +168,38 @@ LANG = {
     "🇫🇷 Français": {"title": "WOOHOO", "tab_photon": "⚡ Trading", "rental_basic": "Basic", "rental_pro": "PRO", "pull_1": "x1", "pull_5": "x5", "pull_10": "x10", "pull_100": "x100", "btn_yes": "✅", "btn_no": "❌"}
 }
 
-# [5. 스타일링 - 블랙 & 가독성]
+# [5. 스타일링 (시인성 문제 해결)]
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&display=swap');
     
+    /* [중요] 사이드바 배경 및 텍스트 색상 강제 지정 */
     .stApp, [data-testid="stSidebar"] { 
         background-color: #000000 !important; 
         color: #ffffff !important; 
         font-family: 'Noto Sans KR', sans-serif; 
     }
     
-    h1, h2, h3, h4, h5, h6, p, label, div, span { color: #ffffff !important; }
+    /* 모든 텍스트 하얀색 */
+    h1, h2, h3, h4, h5, h6, p, label, div, span, li { color: #ffffff !important; }
+    
+    /* 사이드바 내부 요소들도 하얀색 강제 */
     [data-testid="stSidebar"] * { color: #ffffff !important; }
     
+    /* 입력창 디자인 */
     .stTextInput > div > div > input { 
         color: #ffffff !important; 
-        background-color: #222222 !important; 
+        background-color: #1a1a1a !important; 
         border: 1px solid #66fcf1 !important;
     }
     
     .card-box { 
-        border: 2px solid #66fcf1; 
-        background: #111111; 
+        border: 1px solid #333; 
+        background: #111; 
         padding: 15px; 
-        border-radius: 8px; 
+        border-radius: 5px; 
         margin-bottom: 10px; 
+        box-shadow: 0 0 5px #222;
     }
     
     .neon { color: #66fcf1 !important; font-weight: bold; }
@@ -189,24 +207,14 @@ st.markdown("""
     .red { color: #FF4B4B !important; font-weight: bold; }
     
     .stButton button { 
-        border: 2px solid #66fcf1; 
-        background: #000000; 
+        border: 1px solid #66fcf1; 
+        background: #000; 
         color: #66fcf1 !important; 
         font-weight: bold; 
     }
     .stButton button:hover { 
         background: #66fcf1; 
-        color: #000000 !important; 
-        border: 2px solid #ffffff;
-    }
-    
-    .tiny-warn { 
-        color: #FFD700 !important; 
-        border: 1px solid #FFD700; 
-        background: #222; 
-        padding: 5px; 
-        text-align: center;
-        border-radius: 5px; 
+        color: #000 !important; 
     }
 </style>
 """, unsafe_allow_html=True)
@@ -238,16 +246,19 @@ with st.sidebar:
     
     st.divider()
     if not st.session_state.wallet:
-        if st.button(T("wallet_con")): st.session_state.wallet = "Operator_Admin"; st.rerun()
+        if st.button(T("wallet_con")):
+            st.session_state.wallet = "Operator_Admin"
+            st.rerun()
     else:
         user = get_user()
         st.success(f"User: {user['wallet']}")
-        st.metric("Balance", f"{user['balance']:.4f} SOL")
+        st.metric("내 지갑 잔액", f"{user['balance']:.4f} SOL")
         
         # 렌탈샵
         st.markdown("---")
         st.subheader(T("rental_shop"))
         is_active, r_type, mins = check_rental_status()
+        
         if is_active:
             st.info(f"✅ {r_type.upper()} Mode\n(Time: {int(mins)}m)")
         else:
@@ -425,12 +436,12 @@ with tabs[2]:
     else:
         st.info(T("inv_empty"))
 
-# === 4. 명예의 전당 ===
+# === 4. 명예의 전당 (주작 랭킹) ===
 with tabs[3]:
     st.subheader(T("rank_title"))
     st.caption(T("rank_desc"))
     with get_db() as conn:
-        ranks = conn.execute("SELECT wallet, IFNULL(balance, 0.0), IFNULL(total_profit, 0.0), IFNULL(max_sold_lvl, 0) FROM users WHERE total_profit > 0 AND wallet != 'Operator_Admin' ORDER BY max_sold_lvl DESC, total_profit DESC LIMIT 10").fetchall()
+        ranks = conn.execute("SELECT wallet, IFNULL(balance, 0.0), IFNULL(total_profit, 0.0), IFNULL(max_sold_lvl, 0) FROM users WHERE total_profit > 0 ORDER BY max_sold_lvl DESC, total_profit DESC LIMIT 10").fetchall()
     
     if not ranks: st.info(T("rank_empty"))
     else:
